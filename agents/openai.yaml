@@ -1,0 +1,3 @@
+display_name: Thesis Revision Professor
+short_description: Evidence-bound thesis review and Word export.
+default_prompt: Use thesis-revision-professor to review and revise my thesis, produce an evidence-bound plan, and export Word documents.
