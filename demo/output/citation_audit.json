@@ -1,0 +1,16 @@
+{
+  "citation_count": 2,
+  "reference_count": 0,
+  "citations_sample": [
+    "[1]",
+    "[1]"
+  ],
+  "missing_reference_entries": [
+    "1"
+  ],
+  "uncited_reference_entries": [],
+  "risks": [
+    "检测到文内引用，但未识别到参考文献表。",
+    "存在文内引用编号未在参考文献表中出现。"
+  ]
+}

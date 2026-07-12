@@ -26,6 +26,7 @@ Use this layer to select revision strategies instead of applying generic polishi
 
 ## Strategy selection rules
 
+- Select a discipline profile from `references/disciplines/` when the user provides `--discipline`; if the discipline is unknown, use the generic profile and mark the report with a discipline-confirmation note.
 - If evidence is weak, choose **mark-and-request** before rewriting.
 - If structure is weak but evidence is sufficient, choose **reorder-and-bridge**.
 - If method cannot answer the question, choose **scope-reduction** or **method-supplement request**.

@@ -42,3 +42,16 @@ Include:
 ## Formatting
 
 Use clear heading levels. Prefer Chinese file names for Chinese theses and English file names for English theses when requested.
+
+## v2 report structure
+
+The review report must include formal sections:
+
+1. Overall judgment and blind-review risk.
+2. P0/P1/P2 issue table.
+3. Revision plan summary.
+4. Evidence-gap table.
+5. Regression audit.
+6. Next-round action list.
+
+Use Word tables for issue lists and evidence gaps where possible. If the dependency-free exporter is used, Markdown tables are converted to basic OOXML tables.

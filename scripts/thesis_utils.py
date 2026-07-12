@@ -135,26 +135,68 @@ def citation_patterns(text: str) -> list[str]:
     return patterns
 
 
+def _paragraph_xml(text: str, style_name: str = "") -> str:
+    escaped = (
+        text.replace("&", "&amp;")
+        .replace("<", "&lt;")
+        .replace(">", "&gt;")
+    )
+    style = f'<w:pPr><w:pStyle w:val="{style_name}"/></w:pPr>' if style_name else ""
+    return f"<w:p>{style}<w:r><w:t>{escaped}</w:t></w:r></w:p>"
+
+
+def _table_xml(rows: list[list[str]]) -> str:
+    cells = []
+    for row in rows:
+        tcells = []
+        for cell in row:
+            tcells.append(f"<w:tc><w:tcPr><w:tcW w:w=\"2400\" w:type=\"dxa\"/></w:tcPr>{_paragraph_xml(str(cell))}</w:tc>")
+        cells.append("<w:tr>" + "".join(tcells) + "</w:tr>")
+    return "<w:tbl><w:tblPr><w:tblBorders><w:top w:val=\"single\" w:sz=\"4\"/><w:left w:val=\"single\" w:sz=\"4\"/><w:bottom w:val=\"single\" w:sz=\"4\"/><w:right w:val=\"single\" w:sz=\"4\"/><w:insideH w:val=\"single\" w:sz=\"4\"/><w:insideV w:val=\"single\" w:sz=\"4\"/></w:tblBorders></w:tblPr>" + "".join(cells) + "</w:tbl>"
+
+
+def _markdown_blocks_to_docx_xml(title: str, body: str) -> str:
+    document_body = [_paragraph_xml(title, "Title")]
+    lines = body.splitlines()
+    i = 0
+    while i < len(lines):
+        line = lines[i].rstrip()
+        if not line:
+            i += 1
+            continue
+        if line.startswith("|") and i + 1 < len(lines) and set(lines[i + 1].replace("|", "").replace(" ", "")) <= {"-", ":"}:
+            table_rows = []
+            while i < len(lines) and lines[i].startswith("|"):
+                if "---" not in lines[i]:
+                    table_rows.append([c.strip() for c in lines[i].strip("|").split("|")])
+                i += 1
+            document_body.append(_table_xml(table_rows))
+            continue
+        if line.startswith("### "):
+            document_body.append(_paragraph_xml(line[4:], "Heading3"))
+        elif line.startswith("## "):
+            document_body.append(_paragraph_xml(line[3:], "Heading2"))
+        elif line.startswith("# "):
+            document_body.append(_paragraph_xml(line[2:], "Heading1"))
+        elif line.startswith("- "):
+            document_body.append(_paragraph_xml("• " + line[2:]))
+        elif re.match(r"^\d+\.\s", line):
+            document_body.append(_paragraph_xml(line))
+        else:
+            document_body.append(_paragraph_xml(line))
+        i += 1
+    return "".join(document_body)
+
+
 def simple_docx(path: str | Path, title: str, body: str) -> None:
-    """Create a valid minimal DOCX without external dependencies."""
+    """Create a valid dependency-free DOCX with basic headings and tables."""
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
-    paragraphs = [title, *body.splitlines()]
-    document_body = []
-    for i, para in enumerate(paragraphs):
-        if para.strip() == "":
-            continue
-        style = '<w:pPr><w:pStyle w:val="Title"/></w:pPr>' if i == 0 else ""
-        escaped = (
-            para.replace("&", "&amp;")
-            .replace("<", "&lt;")
-            .replace(">", "&gt;")
-        )
-        document_body.append(f"<w:p>{style}<w:r><w:t>{escaped}</w:t></w:r></w:p>")
+    document_body = _markdown_blocks_to_docx_xml(title, body)
     document_xml = (
         '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
         '<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">'
-        f"<w:body>{''.join(document_body)}<w:sectPr/></w:body></w:document>"
+        f"<w:body>{document_body}<w:sectPr/></w:body></w:document>"
     )
     content_types = (
         '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'

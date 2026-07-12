@@ -51,3 +51,20 @@ def test_run_revision_loop(tmp_path: Path) -> None:
     run(PY, "scripts/run_revision_loop.py", "assets/examples/fake_thesis_sample.docx", "--level", "master", "--discipline", "education", "--outdir", str(out))
     assert (out / "修改说明与盲审风险报告.docx").exists()
     assert (out / "round_payload.json").exists()
+    assert (out / "revision_plan.json").exists()
+
+
+def test_apply_revision_plan_marks_unconfirmed(tmp_path: Path) -> None:
+    loop = tmp_path / "loop"
+    revised = tmp_path / "revised"
+    run(PY, "scripts/run_revision_loop.py", "assets/examples/fake_thesis_sample.docx", "--level", "master", "--discipline", "education", "--outdir", str(loop))
+    run(PY, "scripts/apply_revision_plan.py", "assets/examples/fake_thesis_sample.docx", "--plan", str(loop / "revision_plan.json"), "--outdir", str(revised))
+    text = (revised / "论文修改稿.txt").read_text(encoding="utf-8")
+    assert "需作者确认" in text
+
+
+def test_cli_review_status(tmp_path: Path) -> None:
+    out = tmp_path / "cli"
+    run(PY, "-m", "thesis_revision_professor", "review", "assets/examples/fake_thesis_sample.docx", "--level", "master", "--discipline", "education", "--outdir", str(out))
+    assert (out / "revision_state.json").exists()
+    run(PY, "-m", "thesis_revision_professor", "status", str(out / "revision_state.json"))

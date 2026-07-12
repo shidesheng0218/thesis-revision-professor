@@ -1,0 +1,22 @@
+name: test
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Compile
+        run: |
+          python -m py_compile scripts/*.py
+          python -m py_compile thesis_revision_professor/*.py
+      - name: Smoke test
+        run: python tests/run_smoke.py
+      - name: Release gate
+        run: python scripts/release_gate.py

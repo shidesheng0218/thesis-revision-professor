@@ -1,0 +1,11 @@
+{
+  "name": "master-en",
+  "level": "master",
+  "dimensions": [
+    {"key": "research_question", "weight": 0.15, "positive_markers": ["research question", "aim", "objective"], "p0_markers": ["no research question"], "p1_markers": ["too broad"], "recommended_action": "Clarify the research question and scope."},
+    {"key": "literature_review", "weight": 0.15, "positive_markers": ["literature", "gap", "prior research"], "p0_markers": ["no literature review"], "p1_markers": ["descriptive only"], "recommended_action": "Compare literature and state the gap."},
+    {"key": "method", "weight": 0.18, "positive_markers": ["method", "sample", "data", "analysis"], "p0_markers": ["no method"], "p1_markers": ["not specified"], "recommended_action": "Document design, data, and analysis."},
+    {"key": "evidence", "weight": 0.18, "positive_markers": ["result", "finding", "data"], "p0_markers": ["unsupported"], "p1_markers": ["needs evidence"], "recommended_action": "Bind claims to evidence."},
+    {"key": "citations", "weight": 0.12, "positive_markers": ["references", "(20"], "p0_markers": ["missing references"], "p1_markers": ["inconsistent citation"], "recommended_action": "Repair citation consistency."}
+  ]
+}

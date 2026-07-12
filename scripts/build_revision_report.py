@@ -18,6 +18,7 @@ def build_markdown(loop_dir: Path, title: str) -> str:
     evidence = load(loop_dir / "evidence_audit.json", {})
     rubric = load(loop_dir / "rubric_score.json", {})
     panel = load(loop_dir / "professor_panel.json", {"issues": [], "summary": {}})
+    plan = load(loop_dir / "revision_plan.json", {"items": []})
     diff = load(loop_dir / "diff_audit.json", {})
     issues = panel.get("issues", []) if isinstance(panel, dict) else []
     rows = [
@@ -50,6 +51,13 @@ def build_markdown(loop_dir: Path, title: str) -> str:
         "## 证据不足清单",
         "",
     ]
+    md.extend(["", "## 修改计划摘要", ""])
+    plan_items = plan.get("items", []) if isinstance(plan, dict) else []
+    if plan_items:
+        md.append(markdown_table(["ID", "动作", "需确认", "问题", "拟处理"], [[i.get("id", ""), i.get("action", ""), "是" if i.get("requires_author_confirmation") else "否", i.get("problem", ""), i.get("proposed_rewrite", "")] for i in plan_items[:30]]))
+    else:
+        md.append("尚未生成 revision_plan.json。")
+    md.extend(["", "## 证据不足清单", ""])
     claims = evidence.get("claims", []) if isinstance(evidence, dict) else []
     unsupported = [c for c in claims if c.get("risk") == "needs_evidence"][:20]
     if unsupported:

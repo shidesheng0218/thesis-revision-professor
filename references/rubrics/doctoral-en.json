@@ -1,0 +1,10 @@
+{
+  "name": "doctoral-en",
+  "level": "doctoral",
+  "dimensions": [
+    {"key": "original_contribution", "weight": 0.22, "positive_markers": ["contribution", "original", "novel"], "p0_markers": ["no contribution"], "p1_markers": ["weak contribution"], "recommended_action": "State a defensible original contribution."},
+    {"key": "theoretical_positioning", "weight": 0.18, "positive_markers": ["theory", "framework", "construct"], "p0_markers": ["no theoretical framework"], "p1_markers": ["thin theory"], "recommended_action": "Strengthen theoretical positioning."},
+    {"key": "methodological_rigor", "weight": 0.22, "positive_markers": ["method", "validity", "robustness", "sample"], "p0_markers": ["invalid method"], "p1_markers": ["limited robustness"], "recommended_action": "Improve methodological rigor and transparency."},
+    {"key": "evidence_chain", "weight": 0.2, "positive_markers": ["evidence", "finding", "analysis"], "p0_markers": ["unsupported"], "p1_markers": ["overclaim"], "recommended_action": "Align claims with evidence."}
+  ]
+}

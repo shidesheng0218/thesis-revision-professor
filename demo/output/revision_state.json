@@ -1,0 +1,654 @@
+{
+  "created_at": "2026-07-12T15:04:05.840577+00:00",
+  "round": 1,
+  "status": "in_progress",
+  "phase": "revision_plan",
+  "baseline": {},
+  "scores": [
+    {
+      "rubric": "master-cn",
+      "scores": {
+        "research_question": 5,
+        "literature_review": 5,
+        "method": 2,
+        "evidence": 1,
+        "conclusion": 1,
+        "citations": 5,
+        "format_language": 5
+      },
+      "weighted_average": 3.22,
+      "average": 3.22,
+      "issues": [
+        {
+          "priority": "P1",
+          "dimension": "method",
+          "markers": [
+            "样本量",
+            "尚未提供"
+          ],
+          "action": "补齐研究对象、样本、流程、分析方法与局限。"
+        },
+        {
+          "priority": "P0",
+          "dimension": "evidence",
+          "markers": [
+            "没有提供数据",
+            "需作者确认"
+          ],
+          "action": "为核心结论补充数据、材料或参考文献；不能补充时降低结论强度。"
+        },
+        {
+          "priority": "P0",
+          "dimension": "conclusion",
+          "markers": [
+            "显著提升"
+          ],
+          "action": "将结论限定在材料可支撑范围内。"
+        }
+      ],
+      "p0_dimensions": [
+        "evidence",
+        "conclusion"
+      ],
+      "p1_dimensions": [
+        "method"
+      ],
+      "blind_review_risk": "high risk",
+      "note": "Configurable heuristic triage; professor review must verify evidence.",
+      "level": "master",
+      "rubric_path": "/Users/sds/Documents/Codex/2026-07-12/wo/thesis-revision-professor/references/rubrics/master-cn.json"
+    }
+  ],
+  "p0": [
+    {
+      "id": "P0-BLIND-REVIEW-EXPERT-006",
+      "priority": "P0",
+      "role": "blind_review_expert",
+      "dimension": "blind_review_risk",
+      "finding": "存在可能触发盲审质疑的证据缺口。",
+      "evidence": "检测到标记：尚未, 未提供, 需作者确认",
+      "recommended_action": "将缺口列入作者确认清单，优先补充材料或降低结论强度。",
+      "evidence_class": "SOURCE_ORIGINAL",
+      "requires_author_confirmation": true
+    },
+    {
+      "id": "P0-BLIND-REVIEW-EXPERT-010",
+      "priority": "P0",
+      "role": "blind_review_expert",
+      "dimension": "overall_risk",
+      "finding": "综合评分显示当前版本存在较高盲审风险。",
+      "evidence": "rubric risk=high risk, average=3.22",
+      "recommended_action": "优先处理 P0/P1，而不是直接做语言润色。",
+      "evidence_class": "SOURCE_FORMAT_RULE",
+      "requires_author_confirmation": false
+    },
+    {
+      "id": "P0-CHIEF-REVIEWER-001",
+      "priority": "P0",
+      "role": "chief_reviewer",
+      "dimension": "conclusion_boundary",
+      "finding": "结论或贡献表达可能过强，需要核对数据、方法和证据边界。",
+      "evidence": "检测到标记：显著提升",
+      "recommended_action": "将强因果/强证明表述改为与材料匹配的限定性结论，或要求作者补充证据。",
+      "evidence_class": "SOURCE_ORIGINAL",
+      "requires_author_confirmation": true
+    },
+    {
+      "id": "P0-CHIEF-REVIEWER-009",
+      "priority": "P0",
+      "role": "chief_reviewer",
+      "dimension": "evidence",
+      "finding": "存在未绑定依据的实质性判断。",
+      "evidence": "4 条疑似缺证据断言。",
+      "recommended_action": "将这些句子标记为需作者确认，或补充数据/文献/材料。",
+      "evidence_class": "SOURCE_ORIGINAL",
+      "requires_author_confirmation": true
+    },
+    {
+      "id": "P0-LITERATURE-PROFESSOR-007",
+      "priority": "P0",
+      "role": "literature_professor",
+      "dimension": "citations",
+      "finding": "引用一致性存在风险。",
+      "evidence": "检测到文内引用，但未识别到参考文献表。",
+      "recommended_action": "先修复文内引用与参考文献对应关系，再进行实质性扩写。",
+      "evidence_class": "SOURCE_REFERENCE",
+      "requires_author_confirmation": true
+    },
+    {
+      "id": "P0-LITERATURE-PROFESSOR-008",
+      "priority": "P0",
+      "role": "literature_professor",
+      "dimension": "citations",
+      "finding": "引用一致性存在风险。",
+      "evidence": "存在文内引用编号未在参考文献表中出现。",
+      "recommended_action": "先修复文内引用与参考文献对应关系，再进行实质性扩写。",
+      "evidence_class": "SOURCE_REFERENCE",
+      "requires_author_confirmation": true
+    },
+    {
+      "id": "P0-METHOD-PROFESSOR-002",
+      "priority": "P0",
+      "role": "method_professor",
+      "dimension": "method",
+      "finding": "方法章节需要证明研究设计能够回答研究问题。",
+      "evidence": "检测到标记：方法, 访谈, 案例",
+      "recommended_action": "补齐对象、样本、流程、变量/概念、分析步骤、可靠性或局限说明。",
+      "evidence_class": "SOURCE_ORIGINAL",
+      "requires_author_confirmation": true
+    }
+  ],
+  "p1": [
+    {
+      "id": "P1-DISCIPLINE-PROFESSOR-004",
+      "priority": "P1",
+      "role": "discipline_professor",
+      "dimension": "discipline_fit",
+      "finding": "需要检查章节结构和论证方式是否符合学科范式。",
+      "evidence": "检测到标记：案例",
+      "recommended_action": "按学科 profile 调整理论、方法、结果和讨论的比例。",
+      "evidence_class": "SOURCE_ORIGINAL",
+      "requires_author_confirmation": false
+    },
+    {
+      "id": "P1-LITERATURE-PROFESSOR-003",
+      "priority": "P1",
+      "role": "literature_professor",
+      "dimension": "literature_review",
+      "finding": "文献综述应从罗列资料升级为分类、比较、争议和研究空白。",
+      "evidence": "检测到标记：文献综述, 已有研究",
+      "recommended_action": "按主题/方法/时间/观点聚类，比较代表研究，并明确本文切入点。",
+      "evidence_class": "SOURCE_ORIGINAL",
+      "requires_author_confirmation": false
+    }
+  ],
+  "p2": [
+    {
+      "id": "P2-LANGUAGE-PROFESSOR-005",
+      "priority": "P2",
+      "role": "language_professor",
+      "dimension": "language",
+      "finding": "语言需要更学术、克制、精确，避免主观或夸张表达。",
+      "evidence": "检测到标记：本文认为",
+      "recommended_action": "压缩冗余表达，统一概念，使用证据绑定的限定语。",
+      "evidence_class": "SOURCE_ORIGINAL",
+      "requires_author_confirmation": false
+    }
+  ],
+  "resolved": [],
+  "new_risks": [],
+  "evidence_gaps": [
+    {
+      "index": 4,
+      "text": "本文研究问题明确，旨在分析某类教学活动对学生学习体验的影响。",
+      "citation_count": 0,
+      "risk": "needs_evidence"
+    },
+    {
+      "index": 11,
+      "text": "已有研究表明，教学活动设计会影响学生参与度[1]。",
+      "citation_count": 1,
+      "risk": "has_citation_marker"
+    },
+    {
+      "index": 12,
+      "text": "本文试图回答：某类教学活动如何影响学生学习体验。",
+      "citation_count": 0,
+      "risk": "needs_evidence"
+    },
+    {
+      "index": 18,
+      "text": "样例文本声称教学活动显著提升学习体验，但没有提供数据表、访谈证据或统计结果。",
+      "citation_count": 0,
+      "risk": "needs_evidence"
+    },
+    {
+      "index": 20,
+      "text": "本文认为教学活动能够促进学习体验提升。",
+      "citation_count": 0,
+      "risk": "needs_evidence"
+    }
+  ],
+  "confirmation_queue": [],
+  "strategy_matches": [],
+  "deliverables": [
+    "/Users/sds/Documents/Codex/2026-07-12/wo/thesis-revision-professor/demo/output/修改说明与盲审风险报告.docx",
+    "/Users/sds/Documents/Codex/2026-07-12/wo/thesis-revision-professor/demo/output/逐条修改清单.docx",
+    "/Users/sds/Documents/Codex/2026-07-12/wo/thesis-revision-professor/demo/output/论文修改稿.docx"
+  ],
+  "convergence": {
+    "p0_clear": false,
+    "p1_acceptable": true,
+    "risk_minor_or_pass": false,
+    "evidence_gaps_marked": true,
+    "word_deliverables_generated": true
+  },
+  "user_preferences": {
+    "confirmation_mode": "staged",
+    "rewrite_scope": "confirmed_only"
+  },
+  "history": [
+    {
+      "round": 1,
+      "summary": "run_revision_loop diagnostic round",
+      "created_at": "2026-07-12T15:04:05.875438+00:00",
+      "payload": {
+        "input": "/Users/sds/Documents/Codex/2026-07-12/wo/thesis-revision-professor/demo/input/fake_thesis_sample.docx",
+        "level": "master",
+        "discipline": "education",
+        "artifacts": {
+          "extracted": "/Users/sds/Documents/Codex/2026-07-12/wo/thesis-revision-professor/demo/output/extracted.json",
+          "structure": "/Users/sds/Documents/Codex/2026-07-12/wo/thesis-revision-professor/demo/output/structure.json",
+          "citation_audit": "/Users/sds/Documents/Codex/2026-07-12/wo/thesis-revision-professor/demo/output/citation_audit.json",
+          "evidence_audit": "/Users/sds/Documents/Codex/2026-07-12/wo/thesis-revision-professor/demo/output/evidence_audit.json",
+          "rubric_score": "/Users/sds/Documents/Codex/2026-07-12/wo/thesis-revision-professor/demo/output/rubric_score.json",
+          "professor_panel": "/Users/sds/Documents/Codex/2026-07-12/wo/thesis-revision-professor/demo/output/professor_panel.json",
+          "revision_plan": "/Users/sds/Documents/Codex/2026-07-12/wo/thesis-revision-professor/demo/output/revision_plan.json",
+          "diff_audit": null
+        },
+        "rubric_score": {
+          "rubric": "master-cn",
+          "scores": {
+            "research_question": 5,
+            "literature_review": 5,
+            "method": 2,
+            "evidence": 1,
+            "conclusion": 1,
+            "citations": 5,
+            "format_language": 5
+          },
+          "weighted_average": 3.22,
+          "average": 3.22,
+          "issues": [
+            {
+              "priority": "P1",
+              "dimension": "method",
+              "markers": [
+                "样本量",
+                "尚未提供"
+              ],
+              "action": "补齐研究对象、样本、流程、分析方法与局限。"
+            },
+            {
+              "priority": "P0",
+              "dimension": "evidence",
+              "markers": [
+                "没有提供数据",
+                "需作者确认"
+              ],
+              "action": "为核心结论补充数据、材料或参考文献；不能补充时降低结论强度。"
+            },
+            {
+              "priority": "P0",
+              "dimension": "conclusion",
+              "markers": [
+                "显著提升"
+              ],
+              "action": "将结论限定在材料可支撑范围内。"
+            }
+          ],
+          "p0_dimensions": [
+            "evidence",
+            "conclusion"
+          ],
+          "p1_dimensions": [
+            "method"
+          ],
+          "blind_review_risk": "high risk",
+          "note": "Configurable heuristic triage; professor review must verify evidence.",
+          "level": "master",
+          "rubric_path": "/Users/sds/Documents/Codex/2026-07-12/wo/thesis-revision-professor/references/rubrics/master-cn.json"
+        },
+        "evidence_audit": {
+          "claim_count": 5,
+          "unsupported_claim_count": 4,
+          "claims": [
+            {
+              "index": 4,
+              "text": "本文研究问题明确，旨在分析某类教学活动对学生学习体验的影响。",
+              "citation_count": 0,
+              "risk": "needs_evidence"
+            },
+            {
+              "index": 11,
+              "text": "已有研究表明，教学活动设计会影响学生参与度[1]。",
+              "citation_count": 1,
+              "risk": "has_citation_marker"
+            },
+            {
+              "index": 12,
+              "text": "本文试图回答：某类教学活动如何影响学生学习体验。",
+              "citation_count": 0,
+              "risk": "needs_evidence"
+            },
+            {
+              "index": 18,
+              "text": "样例文本声称教学活动显著提升学习体验，但没有提供数据表、访谈证据或统计结果。",
+              "citation_count": 0,
+              "risk": "needs_evidence"
+            },
+            {
+              "index": 20,
+              "text": "本文认为教学活动能够促进学习体验提升。",
+              "citation_count": 0,
+              "risk": "needs_evidence"
+            }
+          ],
+          "instruction": "人工复核这些句子；没有引用标记不必然错误，但重要事实、因果、发现、政策判断必须有依据。"
+        },
+        "professor_panel": {
+          "source": "/Users/sds/Documents/Codex/2026-07-12/wo/thesis-revision-professor/demo/input/fake_thesis_sample.docx",
+          "level": "master",
+          "discipline": "education",
+          "issues": [
+            {
+              "id": "P0-BLIND-REVIEW-EXPERT-006",
+              "priority": "P0",
+              "role": "blind_review_expert",
+              "dimension": "blind_review_risk",
+              "finding": "存在可能触发盲审质疑的证据缺口。",
+              "evidence": "检测到标记：尚未, 未提供, 需作者确认",
+              "recommended_action": "将缺口列入作者确认清单，优先补充材料或降低结论强度。",
+              "evidence_class": "SOURCE_ORIGINAL",
+              "requires_author_confirmation": true
+            },
+            {
+              "id": "P0-BLIND-REVIEW-EXPERT-010",
+              "priority": "P0",
+              "role": "blind_review_expert",
+              "dimension": "overall_risk",
+              "finding": "综合评分显示当前版本存在较高盲审风险。",
+              "evidence": "rubric risk=high risk, average=3.22",
+              "recommended_action": "优先处理 P0/P1，而不是直接做语言润色。",
+              "evidence_class": "SOURCE_FORMAT_RULE",
+              "requires_author_confirmation": false
+            },
+            {
+              "id": "P0-CHIEF-REVIEWER-001",
+              "priority": "P0",
+              "role": "chief_reviewer",
+              "dimension": "conclusion_boundary",
+              "finding": "结论或贡献表达可能过强，需要核对数据、方法和证据边界。",
+              "evidence": "检测到标记：显著提升",
+              "recommended_action": "将强因果/强证明表述改为与材料匹配的限定性结论，或要求作者补充证据。",
+              "evidence_class": "SOURCE_ORIGINAL",
+              "requires_author_confirmation": true
+            },
+            {
+              "id": "P0-CHIEF-REVIEWER-009",
+              "priority": "P0",
+              "role": "chief_reviewer",
+              "dimension": "evidence",
+              "finding": "存在未绑定依据的实质性判断。",
+              "evidence": "4 条疑似缺证据断言。",
+              "recommended_action": "将这些句子标记为需作者确认，或补充数据/文献/材料。",
+              "evidence_class": "SOURCE_ORIGINAL",
+              "requires_author_confirmation": true
+            },
+            {
+              "id": "P0-LITERATURE-PROFESSOR-007",
+              "priority": "P0",
+              "role": "literature_professor",
+              "dimension": "citations",
+              "finding": "引用一致性存在风险。",
+              "evidence": "检测到文内引用，但未识别到参考文献表。",
+              "recommended_action": "先修复文内引用与参考文献对应关系，再进行实质性扩写。",
+              "evidence_class": "SOURCE_REFERENCE",
+              "requires_author_confirmation": true
+            },
+            {
+              "id": "P0-LITERATURE-PROFESSOR-008",
+              "priority": "P0",
+              "role": "literature_professor",
+              "dimension": "citations",
+              "finding": "引用一致性存在风险。",
+              "evidence": "存在文内引用编号未在参考文献表中出现。",
+              "recommended_action": "先修复文内引用与参考文献对应关系，再进行实质性扩写。",
+              "evidence_class": "SOURCE_REFERENCE",
+              "requires_author_confirmation": true
+            },
+            {
+              "id": "P0-METHOD-PROFESSOR-002",
+              "priority": "P0",
+              "role": "method_professor",
+              "dimension": "method",
+              "finding": "方法章节需要证明研究设计能够回答研究问题。",
+              "evidence": "检测到标记：方法, 访谈, 案例",
+              "recommended_action": "补齐对象、样本、流程、变量/概念、分析步骤、可靠性或局限说明。",
+              "evidence_class": "SOURCE_ORIGINAL",
+              "requires_author_confirmation": true
+            },
+            {
+              "id": "P1-DISCIPLINE-PROFESSOR-004",
+              "priority": "P1",
+              "role": "discipline_professor",
+              "dimension": "discipline_fit",
+              "finding": "需要检查章节结构和论证方式是否符合学科范式。",
+              "evidence": "检测到标记：案例",
+              "recommended_action": "按学科 profile 调整理论、方法、结果和讨论的比例。",
+              "evidence_class": "SOURCE_ORIGINAL",
+              "requires_author_confirmation": false
+            },
+            {
+              "id": "P1-LITERATURE-PROFESSOR-003",
+              "priority": "P1",
+              "role": "literature_professor",
+              "dimension": "literature_review",
+              "finding": "文献综述应从罗列资料升级为分类、比较、争议和研究空白。",
+              "evidence": "检测到标记：文献综述, 已有研究",
+              "recommended_action": "按主题/方法/时间/观点聚类，比较代表研究，并明确本文切入点。",
+              "evidence_class": "SOURCE_ORIGINAL",
+              "requires_author_confirmation": false
+            },
+            {
+              "id": "P2-LANGUAGE-PROFESSOR-005",
+              "priority": "P2",
+              "role": "language_professor",
+              "dimension": "language",
+              "finding": "语言需要更学术、克制、精确，避免主观或夸张表达。",
+              "evidence": "检测到标记：本文认为",
+              "recommended_action": "压缩冗余表达，统一概念，使用证据绑定的限定语。",
+              "evidence_class": "SOURCE_ORIGINAL",
+              "requires_author_confirmation": false
+            }
+          ],
+          "summary": {
+            "p0": 7,
+            "p1": 2,
+            "p2": 1
+          }
+        },
+        "deliverables": [
+          "/Users/sds/Documents/Codex/2026-07-12/wo/thesis-revision-professor/demo/output/修改说明与盲审风险报告.docx",
+          "/Users/sds/Documents/Codex/2026-07-12/wo/thesis-revision-professor/demo/output/逐条修改清单.docx",
+          "/Users/sds/Documents/Codex/2026-07-12/wo/thesis-revision-professor/demo/output/论文修改稿.docx"
+        ],
+        "revision_plan": {
+          "plan_id": "revision-plan-20260712150405",
+          "created_at": "2026-07-12T15:04:05.750559+00:00",
+          "mode": "staged_confirmation",
+          "source": "/Users/sds/Documents/Codex/2026-07-12/wo/thesis-revision-professor/demo/input/fake_thesis_sample.docx",
+          "items": [
+            {
+              "id": "P0-EVIDENCE-001",
+              "confirmed": false,
+              "location_hint": "句子序号 4",
+              "target_text": "本文研究问题明确，旨在分析某类教学活动对学生学习体验的影响。",
+              "problem": "疑似缺少证据支撑的实质性判断",
+              "action": "mark_and_request",
+              "evidence_class": "SOURCE_ORIGINAL",
+              "requires_author_confirmation": true,
+              "proposed_rewrite": "本文研究问题明确，旨在分析某类教学活动对学生学习体验的影响。 [需作者确认：该判断需要补充数据、文献或材料依据]",
+              "risk": "不得将未验证判断写成确定性结论"
+            },
+            {
+              "id": "P0-EVIDENCE-002",
+              "confirmed": false,
+              "location_hint": "句子序号 12",
+              "target_text": "本文试图回答：某类教学活动如何影响学生学习体验。",
+              "problem": "疑似缺少证据支撑的实质性判断",
+              "action": "mark_and_request",
+              "evidence_class": "SOURCE_ORIGINAL",
+              "requires_author_confirmation": true,
+              "proposed_rewrite": "本文试图回答：某类教学活动如何影响学生学习体验。 [需作者确认：该判断需要补充数据、文献或材料依据]",
+              "risk": "不得将未验证判断写成确定性结论"
+            },
+            {
+              "id": "P0-EVIDENCE-003",
+              "confirmed": false,
+              "location_hint": "句子序号 18",
+              "target_text": "样例文本声称教学活动显著提升学习体验，但没有提供数据表、访谈证据或统计结果。",
+              "problem": "疑似缺少证据支撑的实质性判断",
+              "action": "mark_and_request",
+              "evidence_class": "SOURCE_ORIGINAL",
+              "requires_author_confirmation": true,
+              "proposed_rewrite": "样例文本声称教学活动显著提升学习体验，但没有提供数据表、访谈证据或统计结果。 [需作者确认：该判断需要补充数据、文献或材料依据]",
+              "risk": "不得将未验证判断写成确定性结论"
+            },
+            {
+              "id": "P0-EVIDENCE-004",
+              "confirmed": false,
+              "location_hint": "句子序号 20",
+              "target_text": "本文认为教学活动能够促进学习体验提升。",
+              "problem": "疑似缺少证据支撑的实质性判断",
+              "action": "mark_and_request",
+              "evidence_class": "SOURCE_ORIGINAL",
+              "requires_author_confirmation": true,
+              "proposed_rewrite": "本文认为教学活动能够促进学习体验提升。 [需作者确认：该判断需要补充数据、文献或材料依据]",
+              "risk": "不得将未验证判断写成确定性结论"
+            },
+            {
+              "id": "P0-BLIND-REVIEW-EXPERT-006",
+              "confirmed": false,
+              "location_hint": "blind_review_risk",
+              "target_text": "",
+              "problem": "存在可能触发盲审质疑的证据缺口。",
+              "action": "restructure_or_clarify",
+              "evidence_class": "SOURCE_ORIGINAL",
+              "requires_author_confirmation": true,
+              "proposed_rewrite": "将缺口列入作者确认清单，优先补充材料或降低结论强度。",
+              "risk": "将缺口列入作者确认清单，优先补充材料或降低结论强度。"
+            },
+            {
+              "id": "P0-BLIND-REVIEW-EXPERT-010",
+              "confirmed": false,
+              "location_hint": "overall_risk",
+              "target_text": "",
+              "problem": "综合评分显示当前版本存在较高盲审风险。",
+              "action": "mark_and_request",
+              "evidence_class": "SOURCE_FORMAT_RULE",
+              "requires_author_confirmation": true,
+              "proposed_rewrite": "综合评分显示当前版本存在较高盲审风险。 [需作者确认：该判断需要补充数据、文献或材料依据]",
+              "risk": "优先处理 P0/P1，而不是直接做语言润色。"
+            },
+            {
+              "id": "P0-CHIEF-REVIEWER-001",
+              "confirmed": false,
+              "location_hint": "conclusion_boundary",
+              "target_text": "",
+              "problem": "结论或贡献表达可能过强，需要核对数据、方法和证据边界。",
+              "action": "mark_and_request",
+              "evidence_class": "SOURCE_ORIGINAL",
+              "requires_author_confirmation": true,
+              "proposed_rewrite": "结论或贡献表达可能过强，需要核对数据、方法和证据边界。 [需作者确认：该判断需要补充数据、文献或材料依据]",
+              "risk": "将强因果/强证明表述改为与材料匹配的限定性结论，或要求作者补充证据。"
+            },
+            {
+              "id": "P0-CHIEF-REVIEWER-009",
+              "confirmed": false,
+              "location_hint": "evidence",
+              "target_text": "",
+              "problem": "存在未绑定依据的实质性判断。",
+              "action": "mark_and_request",
+              "evidence_class": "SOURCE_ORIGINAL",
+              "requires_author_confirmation": true,
+              "proposed_rewrite": "存在未绑定依据的实质性判断。 [需作者确认：该判断需要补充数据、文献或材料依据]",
+              "risk": "将这些句子标记为需作者确认，或补充数据/文献/材料。"
+            },
+            {
+              "id": "P0-LITERATURE-PROFESSOR-007",
+              "confirmed": false,
+              "location_hint": "citations",
+              "target_text": "",
+              "problem": "引用一致性存在风险。",
+              "action": "citation_repair_request",
+              "evidence_class": "SOURCE_REFERENCE",
+              "requires_author_confirmation": true,
+              "proposed_rewrite": "核对文内引用与参考文献表，补齐缺失条目或删除未引用条目。",
+              "risk": "先修复文内引用与参考文献对应关系，再进行实质性扩写。"
+            },
+            {
+              "id": "P0-LITERATURE-PROFESSOR-008",
+              "confirmed": false,
+              "location_hint": "citations",
+              "target_text": "",
+              "problem": "引用一致性存在风险。",
+              "action": "citation_repair_request",
+              "evidence_class": "SOURCE_REFERENCE",
+              "requires_author_confirmation": true,
+              "proposed_rewrite": "核对文内引用与参考文献表，补齐缺失条目或删除未引用条目。",
+              "risk": "先修复文内引用与参考文献对应关系，再进行实质性扩写。"
+            },
+            {
+              "id": "P0-METHOD-PROFESSOR-002",
+              "confirmed": false,
+              "location_hint": "method",
+              "target_text": "",
+              "problem": "方法章节需要证明研究设计能够回答研究问题。",
+              "action": "method_completion_request",
+              "evidence_class": "SOURCE_ORIGINAL",
+              "requires_author_confirmation": true,
+              "proposed_rewrite": "补充研究对象、数据来源、样本/材料、分析流程、可靠性与局限说明。",
+              "risk": "补齐对象、样本、流程、变量/概念、分析步骤、可靠性或局限说明。"
+            },
+            {
+              "id": "P1-DISCIPLINE-PROFESSOR-004",
+              "confirmed": false,
+              "location_hint": "discipline_fit",
+              "target_text": "",
+              "problem": "需要检查章节结构和论证方式是否符合学科范式。",
+              "action": "restructure_or_clarify",
+              "evidence_class": "SOURCE_ORIGINAL",
+              "requires_author_confirmation": false,
+              "proposed_rewrite": "按学科 profile 调整理论、方法、结果和讨论的比例。",
+              "risk": "按学科 profile 调整理论、方法、结果和讨论的比例。"
+            },
+            {
+              "id": "P1-LITERATURE-PROFESSOR-003",
+              "confirmed": false,
+              "location_hint": "literature_review",
+              "target_text": "",
+              "problem": "文献综述应从罗列资料升级为分类、比较、争议和研究空白。",
+              "action": "cluster_compare_gap",
+              "evidence_class": "SOURCE_ORIGINAL",
+              "requires_author_confirmation": false,
+              "proposed_rewrite": "按主题/方法/观点分类已有研究，比较差异，最后明确本文研究空白。",
+              "risk": "按主题/方法/时间/观点聚类，比较代表研究，并明确本文切入点。"
+            },
+            {
+              "id": "P2-LANGUAGE-PROFESSOR-005",
+              "confirmed": true,
+              "location_hint": "language",
+              "target_text": "",
+              "problem": "语言需要更学术、克制、精确，避免主观或夸张表达。",
+              "action": "academicize_and_compress",
+              "evidence_class": "SOURCE_ORIGINAL",
+              "requires_author_confirmation": false,
+              "proposed_rewrite": "将主观、夸张或口语化表达改为克制、证据绑定的学术表达。",
+              "risk": "压缩冗余表达，统一概念，使用证据绑定的限定语。"
+            }
+          ],
+          "note": "Only confirmed items are applied. Unconfirmed P0 evidence gaps are marked for author confirmation."
+        },
+        "convergence": {
+          "p0_clear": false,
+          "p1_acceptable": true,
+          "risk_minor_or_pass": false,
+          "evidence_gaps_marked": true,
+          "word_deliverables_generated": true
+        },
+        "next_phase": "revision_plan"
+      }
+    }
+  ]
+}

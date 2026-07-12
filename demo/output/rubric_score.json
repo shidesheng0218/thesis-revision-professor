@@ -1,0 +1,53 @@
+{
+  "rubric": "master-cn",
+  "scores": {
+    "research_question": 5,
+    "literature_review": 5,
+    "method": 2,
+    "evidence": 1,
+    "conclusion": 1,
+    "citations": 5,
+    "format_language": 5
+  },
+  "weighted_average": 3.22,
+  "average": 3.22,
+  "issues": [
+    {
+      "priority": "P1",
+      "dimension": "method",
+      "markers": [
+        "样本量",
+        "尚未提供"
+      ],
+      "action": "补齐研究对象、样本、流程、分析方法与局限。"
+    },
+    {
+      "priority": "P0",
+      "dimension": "evidence",
+      "markers": [
+        "没有提供数据",
+        "需作者确认"
+      ],
+      "action": "为核心结论补充数据、材料或参考文献；不能补充时降低结论强度。"
+    },
+    {
+      "priority": "P0",
+      "dimension": "conclusion",
+      "markers": [
+        "显著提升"
+      ],
+      "action": "将结论限定在材料可支撑范围内。"
+    }
+  ],
+  "p0_dimensions": [
+    "evidence",
+    "conclusion"
+  ],
+  "p1_dimensions": [
+    "method"
+  ],
+  "blind_review_risk": "high risk",
+  "note": "Configurable heuristic triage; professor review must verify evidence.",
+  "level": "master",
+  "rubric_path": "/Users/sds/Documents/Codex/2026-07-12/wo/thesis-revision-professor/references/rubrics/master-cn.json"
+}

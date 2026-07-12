@@ -1,0 +1,107 @@
+{
+  "paragraphs": [
+    {
+      "index": 0,
+      "text": "伪造硕士论文样例",
+      "style": "Title",
+      "level": null
+    },
+    {
+      "index": 1,
+      "text": "# 伪造硕士论文样例",
+      "style": "",
+      "level": null
+    },
+    {
+      "index": 2,
+      "text": "摘要",
+      "style": "",
+      "level": null
+    },
+    {
+      "index": 3,
+      "text": "本文为工具测试而构造，不对应任何真实论文。本文研究问题明确，旨在分析某类教学活动对学生学习体验的影响。由于样例没有真实数据，所有结果均需作者确认。",
+      "style": "",
+      "level": null
+    },
+    {
+      "index": 4,
+      "text": "关键词：伪造样例；论文修改；证据审计",
+      "style": "",
+      "level": null
+    },
+    {
+      "index": 5,
+      "text": "第一章 绪论",
+      "style": "",
+      "level": 1
+    },
+    {
+      "index": 6,
+      "text": "随着教育数字化的发展，学习体验受到广泛关注。已有研究表明，教学活动设计会影响学生参与度[1]。本文试图回答：某类教学活动如何影响学生学习体验。",
+      "style": "",
+      "level": null
+    },
+    {
+      "index": 7,
+      "text": "第二章 文献综述",
+      "style": "",
+      "level": 1
+    },
+    {
+      "index": 8,
+      "text": "已有研究主要关注学习动机、课堂互动和技术支持三个方向，但对具体教学活动的机制分析仍不充分。",
+      "style": "",
+      "level": null
+    },
+    {
+      "index": 9,
+      "text": "第三章 研究方法",
+      "style": "",
+      "level": 1
+    },
+    {
+      "index": 10,
+      "text": "本文拟采用访谈和案例分析方法，但样本量、访谈提纲和编码方法尚未提供。",
+      "style": "",
+      "level": null
+    },
+    {
+      "index": 11,
+      "text": "第四章 结果分析",
+      "style": "",
+      "level": 1
+    },
+    {
+      "index": 12,
+      "text": "样例文本声称教学活动显著提升学习体验，但没有提供数据表、访谈证据或统计结果。",
+      "style": "",
+      "level": null
+    },
+    {
+      "index": 13,
+      "text": "第五章 结论",
+      "style": "",
+      "level": 1
+    },
+    {
+      "index": 14,
+      "text": "本文认为教学活动能够促进学习体验提升。该结论需要作者补充数据、材料或文献依据。",
+      "style": "",
+      "level": null
+    },
+    {
+      "index": 15,
+      "text": "参考文献",
+      "style": "",
+      "level": null
+    },
+    {
+      "index": 16,
+      "text": "[1] 张三. 伪造参考文献示例[J]. 示例期刊, 2026.",
+      "style": "",
+      "level": null
+    }
+  ],
+  "source": "/Users/sds/Documents/Codex/2026-07-12/wo/thesis-revision-professor/demo/input/fake_thesis_sample.docx"
+}

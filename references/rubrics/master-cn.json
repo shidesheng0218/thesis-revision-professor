@@ -1,0 +1,62 @@
+{
+  "name": "master-cn",
+  "level": "master",
+  "dimensions": [
+    {
+      "key": "research_question",
+      "weight": 0.12,
+      "positive_markers": ["研究问题", "本文旨在", "本文试图", "问题"],
+      "p0_markers": ["研究问题不明确", "缺少研究问题"],
+      "p1_markers": ["问题较宽泛", "对象不清"],
+      "recommended_action": "明确研究对象、问题边界和可回答性。"
+    },
+    {
+      "key": "literature_review",
+      "weight": 0.12,
+      "positive_markers": ["文献综述", "已有研究", "研究现状", "研究空白"],
+      "p0_markers": ["未进行文献综述"],
+      "p1_markers": ["简单罗列", "综述不足"],
+      "recommended_action": "按主题分类比较文献并提炼研究空白。"
+    },
+    {
+      "key": "method",
+      "weight": 0.15,
+      "positive_markers": ["方法", "模型", "实验", "访谈", "案例", "样本"],
+      "p0_markers": ["方法缺失", "未提供方法"],
+      "p1_markers": ["样本量", "尚未提供", "未说明"],
+      "recommended_action": "补齐研究对象、样本、流程、分析方法与局限。"
+    },
+    {
+      "key": "evidence",
+      "weight": 0.16,
+      "positive_markers": ["数据", "材料", "结果", "表明", "参考文献"],
+      "p0_markers": ["没有提供数据", "缺少数据支撑", "需作者确认"],
+      "p1_markers": ["证据不足", "尚需补充"],
+      "recommended_action": "为核心结论补充数据、材料或参考文献；不能补充时降低结论强度。"
+    },
+    {
+      "key": "conclusion",
+      "weight": 0.12,
+      "positive_markers": ["结论", "发现", "贡献", "局限"],
+      "p0_markers": ["显著提升", "证明", "导致"],
+      "p1_markers": ["结论较宽泛", "贡献不足"],
+      "recommended_action": "将结论限定在材料可支撑范围内。"
+    },
+    {
+      "key": "citations",
+      "weight": 0.11,
+      "positive_markers": ["参考文献", "[1]", "[2]"],
+      "p0_markers": ["引用缺失", "参考文献缺失"],
+      "p1_markers": ["引用不一致"],
+      "recommended_action": "修复文内引用和参考文献对应关系。"
+    },
+    {
+      "key": "format_language",
+      "weight": 0.1,
+      "positive_markers": ["摘要", "关键词", "第一章", "参考文献"],
+      "p0_markers": [],
+      "p1_markers": ["格式不统一", "标题层级"],
+      "recommended_action": "统一标题、摘要、关键词、参考文献和语言风格。"
+    }
+  ]
+}

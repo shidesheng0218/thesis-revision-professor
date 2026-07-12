@@ -48,6 +48,18 @@ def main() -> None:
         run(PY, "scripts/run_revision_loop.py", "assets/examples/fake_thesis_sample.docx", "--level", "master", "--discipline", "education", "--outdir", str(loop_out))
         assert (loop_out / "修改说明与盲审风险报告.docx").exists()
         assert (loop_out / "professor_panel.json").exists()
+        assert (loop_out / "revision_plan.json").exists()
+
+        revise_out = tmp / "revise"
+        run(PY, "scripts/apply_revision_plan.py", "assets/examples/fake_thesis_sample.docx", "--plan", str(loop_out / "revision_plan.json"), "--outdir", str(revise_out))
+        assert (revise_out / "论文修改稿.docx").exists()
+
+        cli_out = tmp / "cli"
+        run(PY, "-m", "thesis_revision_professor", "review", "assets/examples/fake_thesis_sample.docx", "--level", "master", "--discipline", "education", "--outdir", str(cli_out))
+        assert (cli_out / "revision_state.json").exists()
+        run(PY, "-m", "thesis_revision_professor", "status", str(cli_out / "revision_state.json"))
+
+        run(PY, "scripts/release_gate.py")
     print("smoke tests passed")
 
 

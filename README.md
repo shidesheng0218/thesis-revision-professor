@@ -1,49 +1,88 @@
 # thesis-revision-professor
 
-An open-source Codex skill for evidence-bound master's and doctoral thesis revision, professor-style review, corpus-derived writing strategy mining, and final Word `.docx` export.
+中文 | An evidence-bound thesis revision skill and CLI for master's and doctoral dissertations.
 
-This repository does not include CNKI, Wanfang, ProQuest, university repository, or other real copyrighted thesis full text. Users must provide and use corpus files only when they have lawful access and permission.
+`thesis-revision-professor` helps Codex and command-line users review, plan, and safely revise thesis drafts. It focuses on professor-style diagnosis, evidence auditing, staged revision, corpus-derived writing strategies, and Word `.docx` outputs.
 
-## What it does
+It does **not** fabricate data, citations, experiments, interviews, cases, or conclusions. It does **not** include CNKI, Wanfang, ProQuest, or other copyrighted thesis full text.
 
-- Reviews thesis structure, evidence, citations, language, and blind-review risk.
-- Runs a staged revision loop: diagnose → plan → confirm → rewrite → regress → export.
-- Provides a one-command diagnostic loop engine that creates structured JSON and Word reports.
-- Extracts non-verbatim writing strategies from legally available local corpora.
-- Produces Word `.docx` deliverables for the revised thesis, review report, and revision log.
-
-## Academic integrity
-
-The skill is for revision, review, and research-expression improvement. It must not be used to fabricate data, citations, experiments, interviews, policy facts, or conclusions. It does not guarantee graduation, blind-review acceptance, publication, or plagiarism-check results.
-
-## Quick validation
+## 30-second quick start
 
 ```bash
-python scripts/export_docx.py --title "测试报告" --body tests/fixtures/sample_report.md --out /tmp/test_report.docx
-python scripts/extract_docx_text.py assets/examples/fake_thesis_sample.docx --out /tmp/extracted.json
-python scripts/rubric_score.py assets/examples/fake_thesis_sample.docx --level master --out /tmp/score.json
-python tests/run_smoke.py
-```
-
-## One-command loop
-
-```bash
-python scripts/run_revision_loop.py assets/examples/fake_thesis_sample.docx \
+git clone https://github.com/shidesheng0218/thesis-revision-professor.git
+cd thesis-revision-professor
+python -m thesis_revision_professor review assets/examples/fake_thesis_sample.docx \
   --level master \
   --discipline education \
   --outdir outputs/round-001
 ```
 
-The command generates:
+Generated files:
 
-- `extracted.json`
-- `structure.json`
-- `citation_audit.json`
-- `evidence_audit.json`
-- `rubric_score.json`
-- `professor_panel.json`
-- `round_payload.json`
-- `revision_state.json`
-- `论文修改稿.docx`
-- `修改说明与盲审风险报告.docx`
-- `逐条修改清单.docx`
+- `outputs/round-001/修改说明与盲审风险报告.docx`
+- `outputs/round-001/逐条修改清单.docx`
+- `outputs/round-001/论文修改稿.docx`
+- `outputs/round-001/revision_plan.json`
+- `outputs/round-001/revision_state.json`
+
+## Install as a Codex skill
+
+```bash
+mkdir -p ~/.codex/skills
+git clone https://github.com/shidesheng0218/thesis-revision-professor.git ~/.codex/skills/thesis-revision-professor
+```
+
+Restart Codex, then ask:
+
+```text
+Use thesis-revision-professor to review my master's thesis:
+/path/to/thesis.docx
+
+First produce a blind-review risk assessment, P0/P1/P2 issues, and an evidence-bound revision plan.
+Do not fabricate data, citations, or conclusions. Export Word .docx reports.
+```
+
+## Optional CLI install
+
+```bash
+pip install -e .
+thesis-review review assets/examples/fake_thesis_sample.docx --level master --discipline education --outdir outputs/round-001
+thesis-review status outputs/round-001/revision_state.json
+```
+
+## Main commands
+
+```bash
+python -m thesis_revision_professor review thesis.docx --level master --discipline education --outdir outputs/round-001
+python -m thesis_revision_professor revise thesis.docx --plan outputs/round-001/revision_plan.json --outdir outputs/round-002
+python -m thesis_revision_professor corpus ./legal-corpus --out outputs/strategy_cards.md
+python -m thesis_revision_professor status outputs/round-001/revision_state.json
+python -m thesis_revision_professor demo
+```
+
+## What the loop does
+
+1. Baseline scan.
+2. Evidence audit.
+3. Citation audit.
+4. Configurable rubric scoring.
+5. Multi-role professor panel review.
+6. Revision plan generation.
+7. Controlled rewrite after confirmation.
+8. Regression audit.
+9. Word export.
+
+## Academic integrity and copyright
+
+- Use only thesis corpora you can lawfully access.
+- Do not upload CNKI/Wanfang/ProQuest thesis full text into this repository.
+- Corpus mining stores aggregate structure and strategy patterns, not source paragraphs.
+- The tool does not guarantee graduation, defense success, blind-review success, publication, or plagiarism-check outcomes.
+- Unsupported claims are marked as `[需作者确认]` rather than invented.
+
+## Validation
+
+```bash
+python tests/run_smoke.py
+python scripts/release_gate.py
+```

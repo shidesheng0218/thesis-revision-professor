@@ -1,0 +1,34 @@
+{
+  "source": "/Users/sds/Documents/Codex/2026-07-12/wo/thesis-revision-professor/demo/input/fake_thesis_sample.docx",
+  "paragraph_count": 17,
+  "heading_count": 5,
+  "chapter_count": 5,
+  "headings": [
+    {
+      "index": 5,
+      "level": 1,
+      "text": "第一章 绪论"
+    },
+    {
+      "index": 7,
+      "level": 1,
+      "text": "第二章 文献综述"
+    },
+    {
+      "index": 9,
+      "level": 1,
+      "text": "第三章 研究方法"
+    },
+    {
+      "index": 11,
+      "level": 1,
+      "text": "第四章 结果分析"
+    },
+    {
+      "index": 13,
+      "level": 1,
+      "text": "第五章 结论"
+    }
+  ],
+  "risks": []
+}

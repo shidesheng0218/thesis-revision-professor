@@ -1,0 +1,54 @@
+{
+  "name": "doctoral-cn",
+  "level": "doctoral",
+  "dimensions": [
+    {
+      "key": "original_contribution",
+      "weight": 0.18,
+      "positive_markers": ["原创", "创新", "理论贡献", "方法贡献", "学术贡献"],
+      "p0_markers": ["创新不足", "贡献不明确"],
+      "p1_markers": ["贡献较弱", "理论深度不足"],
+      "recommended_action": "明确原创问题、理论或方法贡献，并绑定证据。"
+    },
+    {
+      "key": "theory_depth",
+      "weight": 0.15,
+      "positive_markers": ["理论", "框架", "机制", "概念", "命题"],
+      "p0_markers": ["理论缺失"],
+      "p1_markers": ["理论联系不足"],
+      "recommended_action": "建立理论框架与研究问题、方法、结论之间的闭环。"
+    },
+    {
+      "key": "method_robustness",
+      "weight": 0.17,
+      "positive_markers": ["方法", "模型", "实验", "稳健性", "验证", "样本"],
+      "p0_markers": ["方法缺失", "无法支撑结论"],
+      "p1_markers": ["稳健性不足", "样本说明不足"],
+      "recommended_action": "增强方法透明度、稳健性、可复核性和局限说明。"
+    },
+    {
+      "key": "literature_positioning",
+      "weight": 0.13,
+      "positive_markers": ["文献综述", "研究空白", "已有研究", "争议"],
+      "p0_markers": ["文献综述缺失"],
+      "p1_markers": ["综述浅显", "缺少国际文献"],
+      "recommended_action": "加强国内外研究脉络、争议和本文定位。"
+    },
+    {
+      "key": "evidence_and_argument",
+      "weight": 0.17,
+      "positive_markers": ["数据", "材料", "发现", "结果", "分析"],
+      "p0_markers": ["缺少数据支撑", "需作者确认"],
+      "p1_markers": ["论证不足", "材料不足"],
+      "recommended_action": "补强证据链，确保每个核心结论可追溯。"
+    },
+    {
+      "key": "academic_expression",
+      "weight": 0.1,
+      "positive_markers": ["摘要", "关键词", "结论", "局限"],
+      "p0_markers": [],
+      "p1_markers": ["表达不规范", "概念不一致"],
+      "recommended_action": "统一概念、收束表达、避免夸大。"
+    }
+  ]
+}

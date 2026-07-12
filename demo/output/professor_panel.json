@@ -1,0 +1,122 @@
+{
+  "source": "/Users/sds/Documents/Codex/2026-07-12/wo/thesis-revision-professor/demo/input/fake_thesis_sample.docx",
+  "level": "master",
+  "discipline": "education",
+  "issues": [
+    {
+      "id": "P0-BLIND-REVIEW-EXPERT-006",
+      "priority": "P0",
+      "role": "blind_review_expert",
+      "dimension": "blind_review_risk",
+      "finding": "存在可能触发盲审质疑的证据缺口。",
+      "evidence": "检测到标记：尚未, 未提供, 需作者确认",
+      "recommended_action": "将缺口列入作者确认清单，优先补充材料或降低结论强度。",
+      "evidence_class": "SOURCE_ORIGINAL",
+      "requires_author_confirmation": true
+    },
+    {
+      "id": "P0-BLIND-REVIEW-EXPERT-010",
+      "priority": "P0",
+      "role": "blind_review_expert",
+      "dimension": "overall_risk",
+      "finding": "综合评分显示当前版本存在较高盲审风险。",
+      "evidence": "rubric risk=high risk, average=3.22",
+      "recommended_action": "优先处理 P0/P1，而不是直接做语言润色。",
+      "evidence_class": "SOURCE_FORMAT_RULE",
+      "requires_author_confirmation": false
+    },
+    {
+      "id": "P0-CHIEF-REVIEWER-001",
+      "priority": "P0",
+      "role": "chief_reviewer",
+      "dimension": "conclusion_boundary",
+      "finding": "结论或贡献表达可能过强，需要核对数据、方法和证据边界。",
+      "evidence": "检测到标记：显著提升",
+      "recommended_action": "将强因果/强证明表述改为与材料匹配的限定性结论，或要求作者补充证据。",
+      "evidence_class": "SOURCE_ORIGINAL",
+      "requires_author_confirmation": true
+    },
+    {
+      "id": "P0-CHIEF-REVIEWER-009",
+      "priority": "P0",
+      "role": "chief_reviewer",
+      "dimension": "evidence",
+      "finding": "存在未绑定依据的实质性判断。",
+      "evidence": "4 条疑似缺证据断言。",
+      "recommended_action": "将这些句子标记为需作者确认，或补充数据/文献/材料。",
+      "evidence_class": "SOURCE_ORIGINAL",
+      "requires_author_confirmation": true
+    },
+    {
+      "id": "P0-LITERATURE-PROFESSOR-007",
+      "priority": "P0",
+      "role": "literature_professor",
+      "dimension": "citations",
+      "finding": "引用一致性存在风险。",
+      "evidence": "检测到文内引用，但未识别到参考文献表。",
+      "recommended_action": "先修复文内引用与参考文献对应关系，再进行实质性扩写。",
+      "evidence_class": "SOURCE_REFERENCE",
+      "requires_author_confirmation": true
+    },
+    {
+      "id": "P0-LITERATURE-PROFESSOR-008",
+      "priority": "P0",
+      "role": "literature_professor",
+      "dimension": "citations",
+      "finding": "引用一致性存在风险。",
+      "evidence": "存在文内引用编号未在参考文献表中出现。",
+      "recommended_action": "先修复文内引用与参考文献对应关系，再进行实质性扩写。",
+      "evidence_class": "SOURCE_REFERENCE",
+      "requires_author_confirmation": true
+    },
+    {
+      "id": "P0-METHOD-PROFESSOR-002",
+      "priority": "P0",
+      "role": "method_professor",
+      "dimension": "method",
+      "finding": "方法章节需要证明研究设计能够回答研究问题。",
+      "evidence": "检测到标记：方法, 访谈, 案例",
+      "recommended_action": "补齐对象、样本、流程、变量/概念、分析步骤、可靠性或局限说明。",
+      "evidence_class": "SOURCE_ORIGINAL",
+      "requires_author_confirmation": true
+    },
+    {
+      "id": "P1-DISCIPLINE-PROFESSOR-004",
+      "priority": "P1",
+      "role": "discipline_professor",
+      "dimension": "discipline_fit",
+      "finding": "需要检查章节结构和论证方式是否符合学科范式。",
+      "evidence": "检测到标记：案例",
+      "recommended_action": "按学科 profile 调整理论、方法、结果和讨论的比例。",
+      "evidence_class": "SOURCE_ORIGINAL",
+      "requires_author_confirmation": false
+    },
+    {
+      "id": "P1-LITERATURE-PROFESSOR-003",
+      "priority": "P1",
+      "role": "literature_professor",
+      "dimension": "literature_review",
+      "finding": "文献综述应从罗列资料升级为分类、比较、争议和研究空白。",
+      "evidence": "检测到标记：文献综述, 已有研究",
+      "recommended_action": "按主题/方法/时间/观点聚类，比较代表研究，并明确本文切入点。",
+      "evidence_class": "SOURCE_ORIGINAL",
+      "requires_author_confirmation": false
+    },
+    {
+      "id": "P2-LANGUAGE-PROFESSOR-005",
+      "priority": "P2",
+      "role": "language_professor",
+      "dimension": "language",
+      "finding": "语言需要更学术、克制、精确，避免主观或夸张表达。",
+      "evidence": "检测到标记：本文认为",
+      "recommended_action": "压缩冗余表达，统一概念，使用证据绑定的限定语。",
+      "evidence_class": "SOURCE_ORIGINAL",
+      "requires_author_confirmation": false
+    }
+  ],
+  "summary": {
+    "p0": 7,
+    "p1": 2,
+    "p2": 1
+  }
+}

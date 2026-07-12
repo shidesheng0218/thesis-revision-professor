@@ -53,6 +53,7 @@ def main() -> None:
     evidence = outdir / "evidence_audit.json"
     rubric = outdir / "rubric_score.json"
     panel = outdir / "professor_panel.json"
+    revision_plan = outdir / "revision_plan.json"
     diff = outdir / "diff_audit.json"
     report_md = outdir / "修改说明与盲审风险报告.md"
     report_docx = outdir / "修改说明与盲审风险报告.docx"
@@ -90,6 +91,7 @@ def main() -> None:
             str(panel),
         ]
     )
+    run(["scripts/build_revision_plan.py", "--source", str(input_path), "--panel", str(panel), "--evidence", str(evidence), "--out", str(revision_plan)])
     if args.revised:
         run(["scripts/diff_audit.py", str(input_path), args.revised, "--out", str(diff)])
     run(["scripts/build_revision_report.py", str(outdir), "--markdown-out", str(report_md), "--docx-out", str(report_docx)])
@@ -121,12 +123,14 @@ def main() -> None:
             "evidence_audit": str(evidence),
             "rubric_score": str(rubric),
             "professor_panel": str(panel),
+            "revision_plan": str(revision_plan),
             "diff_audit": str(diff) if args.revised else None,
         },
         "rubric_score": rubric_data,
         "evidence_audit": evidence_data,
         "professor_panel": panel_data,
         "deliverables": [str(report_docx), str(revision_log_docx), str(manuscript_docx)],
+        "revision_plan": read_json(revision_plan),
         "convergence": conv,
         "next_phase": "revision_plan" if not conv["p0_clear"] else "controlled_rewrite",
     }
