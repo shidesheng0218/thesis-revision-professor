@@ -84,12 +84,47 @@ def split_sentences(text: str) -> list[str]:
     return [p.strip() for p in parts if p.strip()]
 
 
+def read_json(path: str | Path) -> object:
+    return json.loads(Path(path).read_text(encoding="utf-8"))
+
+
 def looks_like_claim(sentence: str) -> bool:
     markers = [
         "表明", "说明", "证明", "发现", "认为", "因此", "显著", "影响", "促进", "导致",
         "shows", "indicates", "demonstrates", "proves", "therefore", "significant", "impact",
     ]
     return any(m in sentence for m in markers) or len(sentence) > 80
+
+
+def extract_numbers(text: str) -> list[str]:
+    return re.findall(r"(?<![A-Za-z])(?:\d{4}年|\d+(?:\.\d+)?%?|\d+人|\d+份|\d+次|\d+个)(?![A-Za-z])", text)
+
+
+def extract_years(text: str) -> list[str]:
+    return re.findall(r"(?:19|20)\d{2}", text)
+
+
+def keyword_hits(text: str, markers: list[str]) -> list[str]:
+    lower = text.lower()
+    return [m for m in markers if m.lower() in lower or m in text]
+
+
+def priority_rank(priority: str) -> int:
+    return {"P0": 0, "P1": 1, "P2": 2}.get(priority, 3)
+
+
+def risk_rank(risk: str) -> int:
+    order = {"pass": 0, "minor revision": 1, "major revision": 2, "high risk": 3}
+    return order.get(risk, 9)
+
+
+def markdown_table(headers: list[str], rows: list[list[object]]) -> str:
+    escaped = []
+    for row in rows:
+        escaped.append([str(cell).replace("\n", "<br>").replace("|", "\\|") for cell in row])
+    out = ["| " + " | ".join(headers) + " |", "| " + " | ".join(["---"] * len(headers)) + " |"]
+    out.extend("| " + " | ".join(row) + " |" for row in escaped)
+    return "\n".join(out)
 
 
 def citation_patterns(text: str) -> list[str]:

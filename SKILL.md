@@ -15,6 +15,7 @@ Final deliverables must be Word `.docx` files unless the user explicitly asks fo
 
 1. Identify the task type:
    - **Full thesis revision**: read `references/revision-loop.md`, `references/evidence-policy.md`, `references/quality-rubric.md`, `references/professor-panel.md`, and `references/word-output-spec.md`.
+   - **Automated diagnostic loop**: also read `references/loop-state-schema.md` and `references/strategy-orchestration.md`, then run `scripts/run_revision_loop.py`.
    - **Citation or reference check**: read `references/evidence-policy.md` and run `scripts/citation_audit.py` where possible.
    - **Corpus strategy mining**: read `references/cnki-strategy-mining.md` or `references/global-thesis-strategy-mining.md`, then use `scripts/corpus_index.py`, `scripts/extract_thesis_patterns.py`, and `scripts/generate_strategy_cards.py`.
    - **Discipline-specific revision**: also read `references/discipline-profiles.md`.
@@ -58,6 +59,7 @@ python scripts/corpus_index.py ./legal-corpus --out corpus_index.json
 python scripts/extract_thesis_patterns.py corpus_index.json --out patterns.json
 python scripts/generate_strategy_cards.py patterns.json --out strategy_cards.md
 python scripts/revision_state.py init --out revision_state.json
+python scripts/run_revision_loop.py input.docx --level master --discipline computer-science --outdir outputs/round-001
 python scripts/export_docx.py --title "修改说明与盲审风险报告" --body report.md --out report.docx
 ```
 

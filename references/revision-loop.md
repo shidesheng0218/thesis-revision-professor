@@ -49,6 +49,8 @@ Match the thesis section to strategy cards:
 
 Use corpus strategies only as structural guidance. Do not copy corpus wording.
 
+Use `references/strategy-orchestration.md` to select strategies across degree level, discipline, method family, chapter type, evidence strength, risk priority, corpus match, language operation, and iteration status.
+
 ## 4. Professor Panel Review
 
 Run the roles in `professor-panel.md`. Produce short, non-overlapping findings.
@@ -99,9 +101,17 @@ After rewriting, check:
 - no overclaiming;
 - no cross-discipline style mismatch.
 
+When both original and revised files exist, run `scripts/diff_audit.py` to detect risky changes to numbers, years, citations, and strong claims.
+
 ## 9. Word Export
 
 Create final `.docx` files according to `word-output-spec.md`.
+
+For a one-command diagnostic round, run:
+
+```bash
+python scripts/run_revision_loop.py input.docx --level master --discipline unknown --outdir outputs/round-001
+```
 
 ## Convergence criteria
 

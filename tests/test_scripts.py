@@ -44,3 +44,10 @@ def test_corpus_strategy_pipeline(tmp_path: Path) -> None:
     run(PY, "scripts/extract_thesis_patterns.py", str(index), "--out", str(patterns))
     run(PY, "scripts/generate_strategy_cards.py", str(patterns), "--out", str(cards))
     assert "Generated strategy cards" in cards.read_text(encoding="utf-8")
+
+
+def test_run_revision_loop(tmp_path: Path) -> None:
+    out = tmp_path / "loop"
+    run(PY, "scripts/run_revision_loop.py", "assets/examples/fake_thesis_sample.docx", "--level", "master", "--discipline", "education", "--outdir", str(out))
+    assert (out / "修改说明与盲审风险报告.docx").exists()
+    assert (out / "round_payload.json").exists()

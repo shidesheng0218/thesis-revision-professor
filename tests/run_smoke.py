@@ -43,6 +43,11 @@ def main() -> None:
         run(PY, "scripts/extract_thesis_patterns.py", str(index), "--out", str(patterns))
         run(PY, "scripts/generate_strategy_cards.py", str(patterns), "--out", str(cards))
         assert "Generated strategy cards" in cards.read_text(encoding="utf-8")
+
+        loop_out = tmp / "loop"
+        run(PY, "scripts/run_revision_loop.py", "assets/examples/fake_thesis_sample.docx", "--level", "master", "--discipline", "education", "--outdir", str(loop_out))
+        assert (loop_out / "修改说明与盲审风险报告.docx").exists()
+        assert (loop_out / "professor_panel.json").exists()
     print("smoke tests passed")
 
 
