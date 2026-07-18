@@ -1,49 +1,35 @@
 # Evidence policy
 
-The skill must improve academic writing without inventing research.
+Improve expression without inventing research.
 
 ## Evidence classes
 
-- `SOURCE_ORIGINAL`: directly supported by the user's thesis text.
-- `SOURCE_USER_DATA`: supported by user-provided data, experiments, interviews, cases, figures, tables, or appendices.
-- `SOURCE_REFERENCE`: supported by user-provided references.
-- `SOURCE_CORPUS_PATTERN`: supported by non-verbatim structure patterns derived from legal thesis corpora.
-- `SOURCE_FORMAT_RULE`: supported by a school, degree, journal, or formatting rule.
-- `SOURCE_PUBLIC_FACT`: supported by a cited, verifiable public source.
+- `SOURCE_ORIGINAL`: directly supported by the thesis text.
+- `SOURCE_USER_DATA`: user-provided tables, figures, appendices, experiments, interviews, cases, or records.
+- `SOURCE_REFERENCE`: a user-provided cited source.
+- `SOURCE_CORPUS_PATTERN`: non-verbatim aggregate structure pattern only.
+- `SOURCE_FORMAT_RULE`: official school, degree, journal, or format rule.
+- `SOURCE_PUBLIC_FACT`: cited and verifiable public source.
 
-## Allowed
+## Claim-specific requirements
 
-- Reorganize sections.
-- Clarify logic and transitions.
-- Make language more academic and precise.
-- Turn vague claims into bounded claims.
-- Flag missing evidence.
-- Suggest what data or references the author should add.
-- Use corpus-derived patterns for structure and rhetorical sequencing.
+| Claim type | Default evidence requirement |
+| --- | --- |
+| Research aim/question | usually no sentence-level citation; must be answerable and scoped |
+| Method statement | author text plus transparent procedure |
+| Literature claim | cited source and semantic support check |
+| Result/statistical claim | data, table/figure, or analysis trace |
+| Causal claim | data plus method capable of causal inference |
+| Legal/policy claim | authoritative legal/policy source |
+| Contribution claim | traceable problem–method–evidence–conclusion chain |
+| Interpretation | material basis and bounded language |
 
-## Requires explicit user confirmation
+Citation presence is a candidate link, not proof of support. Missing citation does not automatically mean a method statement or research question is unsupported.
 
-- Adding new factual statements.
-- Adding new citations.
-- Changing research questions.
-- Changing findings or implications.
-- Reinterpreting data.
-- Reframing contribution claims.
-- Rewriting methodology descriptions beyond wording.
+## Confirmation and prohibition
 
-## Prohibited
+Require explicit confirmation before adding or changing a fact, data point, citation, research question, finding, implication, causal interpretation, methodology beyond wording, legal authority, or contribution claim.
 
-- Fabricate data, references, experiments, interviews, cases, model results, policies, or historical facts.
-- Turn a hypothesis into a finding.
-- Claim causality where the user's method supports only correlation or description.
-- Copy thesis corpus text into the user's thesis.
-- Optimize wording to evade plagiarism detection.
-- Promise graduation or blind-review success.
+Never fabricate data, sources, experiments, interviews, cases, policies, results, or history. Never turn a hypothesis into a finding, copy corpus prose, optimize for plagiarism evasion, or promise academic outcomes.
 
-## Marking unsupported content
-
-Use this form:
-
-`[需作者确认：缺少支撑该判断的数据/文献/材料]`
-
-For reports, place the same item in the evidence-gap list.
+Use `[需作者确认：缺少支撑该判断的数据/文献/材料]` for unresolved material claims.

@@ -1,46 +1,25 @@
 # Loop state schema
 
-The loop state is the memory layer for multi-round thesis revision. It prevents repeated advice, tracks evidence gaps, and makes convergence auditable.
+`revision_state.json` is the audit memory for cross-round review.
 
-## Top-level fields
+## Issue lifecycle
 
-- `round`: current loop round.
-- `phase`: current phase, one of `baseline_scan`, `revision_plan`, `controlled_rewrite`, `regression_review`, `word_export`.
-- `baseline`: thesis metadata and structure summary.
-- `scores`: chronological rubric scores.
-- `p0`, `p1`, `p2`: open issues by priority.
-- `resolved`: issues solved in prior rounds.
-- `new_risks`: risks introduced by edits.
-- `evidence_gaps`: claims or sections requiring author confirmation.
-- `confirmation_queue`: items the author must confirm before rewriting.
-- `strategy_matches`: corpus or rule strategy cards selected for the current thesis.
-- `deliverables`: generated files.
-- `convergence`: boolean gates.
-- `user_preferences`: durable preferences such as conservative style or staged confirmation.
-- `history`: round-level payloads.
+`open → confirmed → applied → verified → resolved`
 
-## Issue object
+Alternate states: `waived` (author accepts documented risk), `blocked` (needs material or complex Word edit), `reopened` (resolved issue returns), and `regressed` (a patch creates a new risk).
 
-```json
-{
-  "id": "P0-METHOD-001",
-  "priority": "P0",
-  "role": "method_professor",
-  "dimension": "method",
-  "finding": "The method cannot support the claimed causal conclusion.",
-  "evidence": "Conclusion uses causal language but methodology describes interviews only.",
-  "recommended_action": "Bound the conclusion or add confirmed causal evidence.",
-  "evidence_class": "SOURCE_ORIGINAL",
-  "requires_author_confirmation": true
-}
-```
+Every issue uses a stable fingerprint generated from `rule_id`, locator, and normalized finding. Do not append duplicate P0/P1/P2 lists each round.
 
-## Convergence gates
+## Required state fields
 
-- `p0_clear`: all P0 issues solved or assigned to author.
-- `p1_acceptable`: remaining P1 issues do not block the target milestone.
-- `risk_minor_or_pass`: blind-review risk is `minor revision` or `pass`.
-- `evidence_gaps_marked`: unsupported content is marked.
-- `word_deliverables_generated`: required `.docx` files exist.
+- source hash, round, phase, and status;
+- active issues, resolved issues, and new risks;
+- confirmation queue and selected strategy;
+- rubric history and score delta;
+- deliverables and regression summary;
+- convergence gates and stable-round count;
+- compact round history.
 
-Do not claim convergence unless all gates are true.
+## Gates
+
+`p0_clear`, `p1_verified_or_waived`, `evidence_controlled`, `regression_passed`, and `word_fidelity_checked` must all be true before `can_export_final` is true.

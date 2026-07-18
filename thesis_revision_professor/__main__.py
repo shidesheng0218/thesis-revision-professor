@@ -1,116 +1,145 @@
 #!/usr/bin/env python3
-"""Product CLI for thesis-revision-professor."""
+"""Product CLI for thesis-revision-professor v3."""
 
 from __future__ import annotations
 
 import argparse
 import json
-import shutil
-import subprocess
-import sys
 from pathlib import Path
 
+from .corpus import rights_template
+from .docx_report import write_docx
+from .workflow import corpus_workflow, review_workflow, revise_workflow, status_summary, write_json
 
-ROOT = Path(__file__).resolve().parents[1]
-PY = sys.executable
 
-
-def run_script(script: str, *args: str) -> None:
-    subprocess.run([PY, str(ROOT / "scripts" / script), *args], cwd=ROOT, check=True)
+def print_result(payload: dict) -> None:
+    print(json.dumps(payload, ensure_ascii=False, indent=2))
 
 
 def cmd_review(args: argparse.Namespace) -> None:
-    run_script(
-        "run_revision_loop.py",
-        args.input,
-        "--level",
-        args.level,
-        "--discipline",
-        args.discipline,
-        "--outdir",
-        args.outdir,
-        *(["--revised", args.revised] if args.revised else []),
+    print_result(
+        review_workflow(
+            args.input,
+            args.outdir,
+            level=args.level,
+            discipline=args.discipline,
+            method=args.method,
+            stage=args.stage,
+            semantic_findings=args.semantic_findings,
+            state_path=args.state,
+        )
     )
 
 
 def cmd_revise(args: argparse.Namespace) -> None:
-    run_script("apply_revision_plan.py", args.input, "--plan", args.plan, "--outdir", args.outdir)
+    print_result(
+        revise_workflow(
+            args.input,
+            args.plan,
+            args.outdir,
+            state_path=args.state,
+            tracked=not args.clean_changes,
+        )
+    )
 
 
 def cmd_corpus(args: argparse.Namespace) -> None:
-    out = Path(args.out)
-    out.parent.mkdir(parents=True, exist_ok=True)
-    tmp_index = out.with_suffix(".index.json")
-    tmp_patterns = out.with_suffix(".patterns.json")
-    run_script("corpus_index.py", args.corpus_dir, "--out", str(tmp_index))
-    run_script("extract_thesis_patterns.py", str(tmp_index), "--out", str(tmp_patterns))
-    run_script("generate_strategy_cards.py", str(tmp_patterns), "--out", str(out))
-    print(json.dumps({"strategy_cards": str(out), "index": str(tmp_index), "patterns": str(tmp_patterns)}, ensure_ascii=False, indent=2))
+    print_result(corpus_workflow(args.corpus_dir, args.out, rights_manifest=args.rights_manifest))
+
+
+def cmd_rights_template(args: argparse.Namespace) -> None:
+    payload = rights_template(args.corpus_dir)
+    write_json(args.out, payload)
+    print_result({"rights_manifest_template": str(args.out)})
 
 
 def cmd_status(args: argparse.Namespace) -> None:
-    state = json.loads(Path(args.state).read_text(encoding="utf-8"))
-    latest = state.get("scores", [{}])[-1] if state.get("scores") else {}
-    convergence = state.get("convergence", {})
-    summary = {
-        "round": state.get("round"),
-        "phase": state.get("phase"),
-        "risk": latest.get("blind_review_risk", "unknown"),
-        "p0_count": len(state.get("p0", [])),
-        "p1_count": len(state.get("p1", [])),
-        "p2_count": len(state.get("p2", [])),
-        "can_enter_controlled_rewrite": state.get("phase") in {"controlled_rewrite", "revision_plan"},
-        "word_export_gate": convergence.get("word_deliverables_generated", False),
-        "next_step": "确认 revision_plan.json 中的修改项，然后运行 thesis-review revise。" if state.get("phase") == "revision_plan" else "继续下一轮 review 或导出。",
-    }
-    print(json.dumps(summary, ensure_ascii=False, indent=2))
+    print_result(status_summary(args.state))
 
 
 def cmd_demo(args: argparse.Namespace) -> None:
-    demo_out = ROOT / "demo" / "output"
-    demo_out.mkdir(parents=True, exist_ok=True)
-    input_docx = ROOT / "assets" / "examples" / "fake_thesis_sample.docx"
-    demo_input = ROOT / "demo" / "input" / "fake_thesis_sample.docx"
-    demo_input.parent.mkdir(parents=True, exist_ok=True)
-    shutil.copyfile(input_docx, demo_input)
-    run_script("run_revision_loop.py", str(demo_input), "--level", "master", "--discipline", "education", "--outdir", str(demo_out))
-    print(json.dumps({"demo_output": str(demo_out)}, ensure_ascii=False, indent=2))
+    outdir = Path(args.outdir or "demo-output")
+    outdir.mkdir(parents=True, exist_ok=True)
+    source = outdir / "fake_thesis_sample.docx"
+    body = """# 摘要
+
+本文旨在分析某类教学活动与学生学习体验之间的关系。
+
+# 第一章 绪论
+
+本文试图回答：某类教学活动如何影响学生学习体验。
+
+# 第二章 文献综述
+
+已有研究表明，教学设计与学生参与度相关[1]。
+
+# 第三章 研究方法
+
+本研究采用访谈和案例分析，研究对象和编码流程尚待补充。
+
+# 第四章 结果
+
+本文认为该活动显著提升学习体验，但尚未提供数据表或访谈证据。
+
+# 第五章 结论
+
+现有材料不足以支持普遍性结论。
+
+# 参考文献
+
+[1] 张三. 教学设计研究[J]. 教育研究, 2024(1): 1-10.
+"""
+    write_docx(source, "伪论文样例", body)
+    result = review_workflow(source, outdir, level="master", discipline="education", method="qualitative")
+    print_result(result)
 
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="thesis-review")
     sub = parser.add_subparsers(dest="command", required=True)
-    review = sub.add_parser("review", help="Run diagnostic professor-review loop")
+
+    review = sub.add_parser("review", help="Run evidence-bound deterministic and optional semantic review")
     review.add_argument("input")
     review.add_argument("--level", choices=["master", "doctoral"], default="master")
     review.add_argument("--discipline", default="unknown")
+    review.add_argument("--method", default="unknown")
+    review.add_argument("--stage", default="blind-review")
+    review.add_argument("--semantic-findings", help="Validated findings returned by Codex or another semantic reviewer")
+    review.add_argument("--state", help="Previous revision_state.json")
     review.add_argument("--outdir", required=True)
-    review.add_argument("--revised")
     review.set_defaults(func=cmd_review)
 
-    revise = sub.add_parser("revise", help="Apply confirmed revision plan items")
+    revise = sub.add_parser("revise", help="Patch confirmed items, audit regressions, and re-review")
     revise.add_argument("input")
     revise.add_argument("--plan", required=True)
+    revise.add_argument("--state", help="Previous revision_state.json")
+    revise.add_argument("--clean-changes", action="store_true", help="Write clean replacements instead of Word tracked changes")
     revise.add_argument("--outdir", required=True)
     revise.set_defaults(func=cmd_revise)
 
-    corpus = sub.add_parser("corpus", help="Extract non-verbatim strategy cards from a legal local corpus")
+    corpus = sub.add_parser("corpus", help="Mine non-verbatim patterns from rights-approved local files")
     corpus.add_argument("corpus_dir")
+    corpus.add_argument("--rights-manifest", required=True)
     corpus.add_argument("--out", required=True)
     corpus.set_defaults(func=cmd_corpus)
 
-    status = sub.add_parser("status", help="Summarize revision state")
+    rights = sub.add_parser("rights-template", help="Create a corpus rights-manifest template")
+    rights.add_argument("corpus_dir")
+    rights.add_argument("--out", required=True)
+    rights.set_defaults(func=cmd_rights_template)
+
+    status = sub.add_parser("status", help="Summarize issue lifecycle and convergence gates")
     status.add_argument("state")
     status.set_defaults(func=cmd_status)
 
-    demo = sub.add_parser("demo", help="Generate demo outputs")
+    demo = sub.add_parser("demo", help="Generate a synthetic, copyright-safe v3 demo")
+    demo.add_argument("--outdir")
     demo.set_defaults(func=cmd_demo)
     return parser
 
 
 def main(argv: list[str] | None = None) -> None:
-    parser = build_parser()
-    args = parser.parse_args(argv)
+    args = build_parser().parse_args(argv)
     args.func(args)
 
 

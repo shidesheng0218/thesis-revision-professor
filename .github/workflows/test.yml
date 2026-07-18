@@ -14,9 +14,14 @@ jobs:
           python-version: "3.11"
       - name: Compile
         run: |
-          python -m py_compile scripts/*.py
-          python -m py_compile thesis_revision_professor/*.py
+          PYTHONPYCACHEPREFIX=/tmp/trp-pycache python -m py_compile scripts/*.py
+          PYTHONPYCACHEPREFIX=/tmp/trp-pycache python -m py_compile thesis_revision_professor/*.py
       - name: Smoke test
         run: python tests/run_smoke.py
+      - name: Build and run installed wheel
+        run: |
+          python -m pip wheel . --no-deps --no-build-isolation -w /tmp/trp-wheel
+          python -m pip install --no-deps --target /tmp/trp-installed /tmp/trp-wheel/thesis_revision_professor-0.3.0-py3-none-any.whl
+          PYTHONPATH=/tmp/trp-installed python -m thesis_revision_professor --help
       - name: Release gate
         run: python scripts/release_gate.py

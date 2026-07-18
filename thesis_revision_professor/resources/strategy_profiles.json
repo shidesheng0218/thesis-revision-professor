@@ -1,0 +1,67 @@
+{
+  "schema_version": "3.0",
+  "precedence": ["academic_integrity", "school_rules", "method_validity", "degree_level", "discipline", "language_style"],
+  "disciplines": {
+    "generic": {
+      "label": "通用学术论文",
+      "required_components": {"research_question": ["研究问题", "研究目的", "本文旨在"], "method": ["研究方法", "方法", "材料"], "limitations": ["局限", "不足"]},
+      "high_risk": ["研究问题与方法不对应", "结论超出证据边界"]
+    },
+    "education": {
+      "label": "教育学",
+      "required_components": {"participants": ["研究对象", "参与者", "样本", "学生", "教师"], "instrument": ["问卷", "访谈提纲", "量表", "观察", "测验"], "procedure": ["实施过程", "研究过程", "教学过程", "编码过程"], "ethics": ["知情同意", "伦理", "匿名", "保密"]},
+      "high_risk": ["样本与推广范围不匹配", "干预过程不可复核", "测量工具信效度不明"]
+    },
+    "computer-science": {
+      "label": "计算机科学",
+      "required_components": {"baseline": ["基线", "对比方法", "baseline"], "metrics": ["评价指标", "准确率", "召回率", "F1", "延迟", "吞吐"], "data": ["数据集", "训练集", "测试集"], "reproducibility": ["参数设置", "实验环境", "代码", "复现"]},
+      "high_risk": ["无基线比较", "指标不能回答研究问题", "数据泄漏或实验不可复现"]
+    },
+    "engineering": {
+      "label": "工程",
+      "required_components": {"constraints": ["约束", "技术指标", "设计要求"], "validation": ["试验", "仿真", "测试", "验证"], "failure": ["误差", "失效", "故障", "局限"]},
+      "high_risk": ["缺少工程验证", "参数来源不明", "没有失败分析"]
+    },
+    "economics": {
+      "label": "经济学",
+      "required_components": {"identification": ["识别策略", "内生性", "工具变量", "双重差分", "断点"], "variables": ["变量定义", "控制变量", "被解释变量"], "robustness": ["稳健性", "安慰剂", "异质性"]},
+      "high_risk": ["相关性被写成因果", "识别假设未说明", "稳健性不足"]
+    },
+    "management": {
+      "label": "管理学",
+      "required_components": {"constructs": ["变量定义", "构念", "理论模型"], "validity": ["信度", "效度", "三角验证"], "context": ["研究情境", "企业背景", "案例背景"]},
+      "high_risk": ["构念定义漂移", "咨询建议替代学术分析", "案例证据单薄"]
+    },
+    "law": {
+      "label": "法学",
+      "required_components": {"authority": ["法律", "法规", "司法解释", "判例", "规范性文件"], "interpretation": ["解释方法", "文义解释", "体系解释", "目的解释"], "normative_basis": ["规范基础", "法理", "权利", "义务"]},
+      "high_risk": ["法律依据缺失", "从事实直接跳到规范结论", "建议脱离制度约束"]
+    },
+    "medicine": {
+      "label": "医学与生命科学",
+      "required_components": {"ethics": ["伦理审批", "伦理委员会", "知情同意"], "population": ["纳入标准", "排除标准", "样本量"], "protocol": ["研究方案", "试验流程", "检测方法"], "statistics": ["统计方法", "置信区间", "显著性"]},
+      "high_risk": ["伦理信息缺失", "临床建议超出证据", "统计报告不完整"]
+    },
+    "humanities": {
+      "label": "人文学科",
+      "required_components": {"corpus": ["文本范围", "史料", "档案", "材料范围"], "concepts": ["核心概念", "理论框架", "概念界定"], "close_reading": ["文本细读", "例证", "原始材料"]},
+      "high_risk": ["概念漂移", "材料边界不清", "宏大判断缺少文本支撑"]
+    },
+    "arts": {
+      "label": "艺术与设计",
+      "required_components": {"process": ["创作过程", "设计过程", "迭代", "草图"], "work_analysis": ["作品分析", "形式分析", "材料分析"], "reflection": ["反思", "评价", "局限"]},
+      "high_risk": ["个人偏好替代分析", "过程无法追溯", "理论与实践脱节"]
+    }
+  },
+  "methods": {
+    "unknown": {"label": "待确认方法", "markers": [], "required_components": {}},
+    "quantitative": {"label": "定量研究", "markers": ["回归", "问卷", "量表", "显著性", "统计"], "required_components": {"sample": ["样本量", "抽样", "样本"], "measurement": ["变量定义", "量表", "信度", "效度"], "analysis": ["统计方法", "回归", "检验"]}},
+    "qualitative": {"label": "质性研究", "markers": ["访谈", "编码", "扎根", "民族志"], "required_components": {"sampling": ["目的抽样", "理论抽样", "研究对象"], "coding": ["编码", "主题分析", "饱和"], "trustworthiness": ["三角验证", "成员核查", "反身性", "可信度"]}},
+    "mixed-methods": {"label": "混合方法", "markers": ["混合方法", "定量与质性", "质性与定量"], "required_components": {"integration": ["整合", "三角互证", "顺序解释", "并行设计"], "priority": ["方法权重", "优先级", "阶段"]}},
+    "experiment": {"label": "实验或准实验", "markers": ["实验组", "对照组", "随机", "前测", "后测"], "required_components": {"assignment": ["随机分配", "匹配", "对照组"], "protocol": ["实验流程", "干预过程"], "validity": ["内部效度", "外部效度", "混杂"]}},
+    "machine-learning": {"label": "机器学习实验", "markers": ["训练集", "测试集", "神经网络", "消融实验", "机器学习"], "required_components": {"split": ["训练集", "验证集", "测试集"], "baseline": ["基线", "对比方法"], "ablation": ["消融", "敏感性分析"], "reproducibility": ["随机种子", "超参数", "实验环境"]}},
+    "engineering-design": {"label": "工程设计", "markers": ["原型", "仿真", "技术路线", "系统设计"], "required_components": {"constraints": ["设计约束", "技术指标"], "validation": ["测试", "仿真", "验证"], "failure": ["失效", "误差", "边界"]}},
+    "legal-doctrinal": {"label": "法教义学", "markers": ["法教义学", "规范分析", "司法解释", "判例"], "required_components": {"sources": ["法律", "法规", "判例", "司法解释"], "interpretation": ["解释方法", "体系解释", "目的解释"]}},
+    "textual-historical": {"label": "文本或历史研究", "markers": ["文本分析", "史料", "档案", "历史研究"], "required_components": {"boundary": ["材料范围", "时间范围", "文本范围"], "method": ["文本细读", "史料批判", "解释框架"]}}
+  }
+}

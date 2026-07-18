@@ -1,38 +1,27 @@
 #!/usr/bin/env python3
-"""Flag substantive claims that appear to need evidence."""
+"""Run the v3 typed claim-evidence audit."""
 
 from __future__ import annotations
 
 import argparse
-from thesis_utils import citation_patterns, looks_like_claim, read_text, split_sentences, write_json
+import json
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
+from thesis_revision_professor.claim_evidence import build_claim_graph
+from thesis_revision_professor.document_model import load_document
 
 
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("input", help=".docx, .txt, .md, or extracted JSON")
+    parser.add_argument("input")
     parser.add_argument("--out", required=True)
     args = parser.parse_args()
-
-    sentences = split_sentences(read_text(args.input))
-    claims = []
-    for i, sentence in enumerate(sentences):
-        if looks_like_claim(sentence):
-            cites = citation_patterns(sentence)
-            claims.append(
-                {
-                    "index": i,
-                    "text": sentence,
-                    "citation_count": len(cites),
-                    "risk": "needs_evidence" if not cites else "has_citation_marker",
-                }
-            )
-    data = {
-        "claim_count": len(claims),
-        "unsupported_claim_count": sum(1 for c in claims if c["risk"] == "needs_evidence"),
-        "claims": claims[:200],
-        "instruction": "人工复核这些句子；没有引用标记不必然错误，但重要事实、因果、发现、政策判断必须有依据。",
-    }
-    write_json(data, args.out)
+    graph = build_claim_graph(load_document(args.input))
+    graph["unsupported_claim_count"] = graph["unresolved_count"]
+    Path(args.out).write_text(json.dumps(graph, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
 if __name__ == "__main__":

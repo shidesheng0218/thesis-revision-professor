@@ -1,74 +1,50 @@
 ---
 name: thesis-revision-professor
-description: Advanced master's and doctoral thesis revision, professor-style review, evidence auditing, corpus-derived strategy mining, citation checks, and final Word (.docx) export. Use when Codex needs to revise, evaluate, restructure, polish, audit, score, or generate Word revision reports for theses/dissertations; simulate rigorous professor or blind-review feedback; extract writing strategies from legally available CNKI, institutional, or open thesis corpora; or run evidence-bound multi-step revision loops.
+description: Evidence-bound hybrid review and controlled Word revision for master's and doctoral theses. Use when Codex must diagnose, score, restructure, polish, verify citations or claims, simulate discipline/method-specific blind review, mine non-verbatim strategies from rights-approved local thesis corpora, run multi-round convergence, or deliver traceable .docx revisions without fabricating data, sources, experiments, cases, policies, findings, or conclusions.
 ---
 
 # Thesis Revision Professor
 
-## Operating standard
+Preserve truth, evidence, author voice, and Word structure. Act as an auditable review panel, not a ghostwriter. Never promise graduation, blind-review acceptance, publication, or plagiarism-check outcomes.
 
-Act as a rigorous top-tier professor panel, not as a ghostwriter. Improve the user's existing research expression while preserving truth, evidence, and authorship. Do not invent data, citations, experiments, policy facts, cases, interviews, or conclusions.
+## Route the task
 
-Final deliverables must be Word `.docx` files unless the user explicitly asks for an intermediate diagnostic only.
+- For full review or revision, read `references/revision-loop.md`, `references/evidence-policy.md`, `references/strategy-orchestration.md`, `references/semantic-review-protocol.md`, and `references/word-output-spec.md`.
+- For confirmed rewrite, also read `references/revision-plan-schema.md` and `references/loop-state-schema.md`.
+- For citation-only work, read `references/evidence-policy.md` and run `scripts/citation_audit.py`.
+- For corpus mining, read `references/corpus-rights-manifest.md` plus the relevant CNKI/global mining reference.
+- For copyright or integrity questions, read `references/academic-integrity.md`.
 
-## Required workflow
+## Run the hybrid loop
 
-1. Identify the task type:
-   - **Full thesis revision**: read `references/revision-loop.md`, `references/evidence-policy.md`, `references/quality-rubric.md`, `references/professor-panel.md`, and `references/word-output-spec.md`.
-   - **Automated diagnostic loop**: also read `references/loop-state-schema.md` and `references/strategy-orchestration.md`, then run `scripts/run_revision_loop.py`.
-   - **Confirmed rewrite**: read `references/revision-plan-schema.md`, then run `scripts/apply_revision_plan.py` only after the user confirms revision items.
-   - **Citation or reference check**: read `references/evidence-policy.md` and run `scripts/citation_audit.py` where possible.
-   - **Corpus strategy mining**: read `references/cnki-strategy-mining.md` or `references/global-thesis-strategy-mining.md`, then use `scripts/corpus_index.py`, `scripts/extract_thesis_patterns.py`, and `scripts/generate_strategy_cards.py`.
-   - **Discipline-specific revision**: also read `references/discipline-profiles.md`.
-   - **Academic-integrity or copyright-sensitive work**: read `references/academic-integrity.md`.
-2. Run or emulate the revision loop:
-   - Baseline Scan
-   - Evidence Audit
-   - Corpus Strategy Match
-   - Professor Panel Review
-   - Priority Gate
-   - Revision Plan
-   - Controlled Rewrite
-   - Regression Review
-   - Word Export
-3. Use staged confirmation for substantive rewrites:
-   - First produce diagnosis and a revision plan.
-   - Rewrite only after the user confirms the plan, unless the user explicitly asked for a small direct edit.
-4. Bind every substantive suggestion to an evidence class:
-   - `SOURCE_ORIGINAL`
-   - `SOURCE_USER_DATA`
-   - `SOURCE_REFERENCE`
-   - `SOURCE_CORPUS_PATTERN`
-   - `SOURCE_FORMAT_RULE`
-   - `SOURCE_PUBLIC_FACT`
-5. Mark unsupported content instead of fabricating:
-   - Use `[需作者确认：原因]` for facts, data, causal claims, or conclusions that cannot be verified from the user's materials.
-6. Export Word files:
-   - `论文修改稿.docx`
-   - `修改说明与盲审风险报告.docx`
-   - `逐条修改清单.docx`
+1. Run deterministic preflight with explicit discipline and method when known:
 
-## Script quick starts
+   `python3 -m thesis_revision_professor review thesis.docx --level master --discipline education --method qualitative --outdir outputs/round-001`
 
-```bash
-python scripts/extract_docx_text.py input.docx --out extracted.json
-python scripts/structure_map.py input.docx --out structure.json
-python scripts/citation_audit.py input.docx --out citation_audit.json
-python scripts/evidence_audit.py input.docx --out evidence_audit.json
-python scripts/rubric_score.py input.docx --level master --out rubric_score.json
-python scripts/corpus_index.py ./legal-corpus --out corpus_index.json
-python scripts/extract_thesis_patterns.py corpus_index.json --out patterns.json
-python scripts/generate_strategy_cards.py patterns.json --out strategy_cards.md
-python scripts/revision_state.py init --out revision_state.json
-python scripts/run_revision_loop.py input.docx --level master --discipline computer-science --outdir outputs/round-001
-python scripts/apply_revision_plan.py input.docx --plan outputs/round-001/revision_plan.json --outdir outputs/round-002
-python scripts/export_docx.py --title "修改说明与盲审风险报告" --body report.md --out report.docx
-```
+2. Read `semantic_review_request.json`. Independently inspect the located thesis text using the semantic protocol. Write schema-valid `semantic_findings.json`; abstain when evidence is insufficient.
+3. Merge semantic findings by rerunning `review` with `--semantic-findings semantic_findings.json` and the prior `--state`.
+4. Present `revision_plan.json`. Require the author to confirm substantive items and provide concrete replacement text or source material.
+5. Apply the confirmed plan:
 
-## Non-negotiable boundaries
+   `python3 -m thesis_revision_professor revise thesis.docx --plan outputs/round-001/revision_plan.json --state outputs/round-001/revision_state.json --outdir outputs/round-002`
 
-- Do not distribute CNKI, Wanfang, ProQuest, university-repository, or other copyrighted thesis full text inside outputs intended for open-source release.
-- Do not copy long passages from corpus theses into strategy cards.
-- Do not promise graduation, blind-review acceptance, publication, or plagiarism-check outcomes.
-- Do not optimize for evading plagiarism detection.
-- Do not silently change the user's data, sample size, dates, statistical results, cited authors, or conclusions.
+6. Accept the final manuscript only when regression and Word-fidelity gates pass. If a gate fails, keep the candidate quarantined and deliver the unchanged original as `论文修改稿.docx`.
+
+## Enforce invariants
+
+- Bind every finding to a locator, rule, rationale, confidence, recommended action, and acceptance test.
+- Distinguish research questions and aims from evidence-requiring claims.
+- Treat citation presence as a candidate link, not proof that the source supports the claim.
+- Never silently change data, numbers, sample size, years, citations, statistics, legal authorities, or conclusions.
+- Use `[需作者确认：原因]` for unresolved substantive claims.
+- Refuse automatic edits in paragraphs containing drawings, fields, footnotes, objects, or other complex OOXML.
+- Preserve all DOCX package and media parts; use tracked changes by default.
+
+## Deliver
+
+- `论文修改稿.docx`
+- `修改说明与盲审风险报告.docx`
+- `逐条修改清单.docx`
+- `revision_plan.json`, `revision_state.json`, and regression artifacts for auditability
+
+Do not place copyrighted thesis full text, identifiable corpus paths, database credentials, or reconstructable source passages in the open-source repository or strategy cards.

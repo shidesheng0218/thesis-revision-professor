@@ -1,34 +1,33 @@
 # Revision plan schema
 
-`revision_plan.json` is the contract between diagnosis and controlled rewrite. It prevents uncontrolled thesis rewriting.
+`revision_plan.json` is a source-hash-bound contract between diagnosis and controlled rewrite.
 
-## Fields
+## Plan fields
 
-- `plan_id`: stable plan id for the round.
-- `mode`: usually `staged_confirmation`.
-- `source`: original thesis path.
-- `items`: ordered revision actions.
+- `source_hash`, `level`, `discipline`, `method`, and stage;
+- `mode: staged_confirmation`;
+- item-level stable locator, paragraph hash, target text, risk, acceptance test, and allowed invariant changes.
 
-## Item fields
+## Item modes
+
+- `mark_unconfirmed`: preserve the claim and append an author-confirmation marker; never treat it as repaired evidence.
+- `replace_text`: apply only when `confirmed: true`, the locator and target hash match, and `proposed_rewrite` is concrete.
+- `manual_only`: never auto-edit; used for restructuring, source repair, complex OOXML, or missing research material.
 
 ```json
 {
-  "id": "P0-EVIDENCE-001",
+  "id": "PLAN-CLM-00021",
   "confirmed": false,
-  "location_hint": "第五章 结论",
-  "target_text": "本文认为教学活动能够促进学习体验提升。",
-  "problem": "结论缺少数据支撑",
-  "action": "mark_and_request",
+  "locator": "word/document.xml#para=00A1;index=48",
+  "target_hash": "...",
+  "target_text": "本文证明……",
+  "patch_mode": "mark_unconfirmed",
   "evidence_class": "SOURCE_ORIGINAL",
   "requires_author_confirmation": true,
-  "proposed_rewrite": "基于现有材料，本文可以初步认为教学活动与学习体验改善之间存在关联，但仍需补充数据或访谈证据。",
-  "risk": "不得新增未验证结果"
+  "proposed_rewrite": "本文证明……",
+  "allowed_changes": {"numbers": [], "years": [], "citations": []},
+  "acceptance_test": "补充可定位证据或降低强断言。"
 }
 ```
 
-## Application rules
-
-- Apply only items with `confirmed: true`.
-- For unconfirmed P0 evidence gaps, mark the original sentence with `[需作者确认：原因]`.
-- Do not add new citations, data, cases, or findings.
-- Run regression audit after application.
+Reject a plan if its `source_hash` does not match the input. Any unlisted number, year, citation, media, or package-part change fails regression and rolls back the final manuscript.

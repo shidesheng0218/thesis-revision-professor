@@ -1,4 +1,4 @@
-"""CLI package for thesis-revision-professor."""
+"""Evidence-bound hybrid thesis revision package."""
 
 __all__ = ["__version__"]
-__version__ = "0.2.0"
+__version__ = "0.3.0"

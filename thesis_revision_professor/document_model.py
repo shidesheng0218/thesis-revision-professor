@@ -1,0 +1,224 @@
+"""Stable, evidence-oriented representation of thesis source documents."""
+
+from __future__ import annotations
+
+import hashlib
+import json
+import re
+import zipfile
+from dataclasses import asdict, dataclass
+from pathlib import Path
+from typing import Iterator
+from xml.etree import ElementTree as ET
+
+
+W_NS = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
+W14_NS = "http://schemas.microsoft.com/office/word/2010/wordml"
+W = f"{{{W_NS}}}"
+W14 = f"{{{W14_NS}}}"
+
+
+def text_hash(text: str) -> str:
+    normalized = re.sub(r"\s+", " ", text).strip()
+    return hashlib.sha256(normalized.encode("utf-8")).hexdigest()
+
+
+def heading_level(text: str, style: str = "") -> int | None:
+    match = re.search(r"heading\s*([1-6])", style, flags=re.I)
+    if match:
+        return int(match.group(1))
+    if re.match(r"^第[一二三四五六七八九十百\d]+[章节篇]\s*", text):
+        return 1
+    numeric = re.match(r"^(\d+(?:\.\d+){0,5})[、.\s]", text)
+    if numeric:
+        return min(numeric.group(1).count(".") + 1, 6)
+    canonical = text.strip().lower()
+    if canonical in {
+        "摘要",
+        "abstract",
+        "参考文献",
+        "references",
+        "致谢",
+        "acknowledgements",
+        "附录",
+        "appendix",
+    }:
+        return 1
+    return None
+
+
+def paragraph_text(node: ET.Element) -> str:
+    return "".join(child.text or "" for child in node.iter(f"{W}t")).strip()
+
+
+def paragraph_style(node: ET.Element) -> str:
+    ppr = node.find(f"{W}pPr")
+    if ppr is None:
+        return ""
+    pstyle = ppr.find(f"{W}pStyle")
+    return pstyle.attrib.get(f"{W}val", "") if pstyle is not None else ""
+
+
+def has_complex_content(node: ET.Element) -> bool:
+    guarded = {
+        f"{W}drawing",
+        f"{W}object",
+        f"{W}fldChar",
+        f"{W}instrText",
+        f"{W}footnoteReference",
+        f"{W}endnoteReference",
+    }
+    return any(child.tag in guarded for child in node.iter())
+
+
+def iter_paragraph_nodes(root: ET.Element) -> Iterator[tuple[ET.Element, str, bool]]:
+    """Yield paragraphs in document order with an OOXML path and table flag."""
+
+    def walk(node: ET.Element, path: str, in_table: bool) -> Iterator[tuple[ET.Element, str, bool]]:
+        for index, child in enumerate(list(node)):
+            child_path = f"{path}/{index}"
+            child_in_table = in_table or child.tag == f"{W}tbl"
+            if child.tag == f"{W}p":
+                yield child, child_path, child_in_table
+                continue
+            yield from walk(child, child_path, child_in_table)
+
+    yield from walk(root, "", False)
+
+
+@dataclass(frozen=True)
+class DocumentParagraph:
+    index: int
+    locator: str
+    paragraph_id: str
+    ooxml_path: str
+    text: str
+    text_hash: str
+    style: str
+    heading_level: int | None
+    section_title: str
+    in_table: bool
+    has_complex_content: bool
+
+
+@dataclass(frozen=True)
+class ThesisDocument:
+    source: str
+    source_hash: str
+    format: str
+    paragraphs: tuple[DocumentParagraph, ...]
+    package_parts: tuple[str, ...]
+    media_parts: tuple[str, ...]
+
+    def to_dict(self) -> dict:
+        return {
+            "schema_version": "3.0",
+            "source": self.source,
+            "source_hash": self.source_hash,
+            "format": self.format,
+            "paragraph_count": len(self.paragraphs),
+            "package_parts": list(self.package_parts),
+            "media_parts": list(self.media_parts),
+            "paragraphs": [asdict(item) for item in self.paragraphs],
+        }
+
+    def paragraph_by_locator(self, locator: str) -> DocumentParagraph | None:
+        return next((item for item in self.paragraphs if item.locator == locator), None)
+
+
+def _source_hash(path: Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def load_docx(path: str | Path) -> ThesisDocument:
+    source = Path(path)
+    with zipfile.ZipFile(source) as archive:
+        document_xml = archive.read("word/document.xml")
+        parts = tuple(sorted(archive.namelist()))
+    root = ET.fromstring(document_xml)
+    paragraphs: list[DocumentParagraph] = []
+    active_section = ""
+    for index, (node, ooxml_path, in_table) in enumerate(iter_paragraph_nodes(root)):
+        text = paragraph_text(node)
+        if not text:
+            continue
+        style = paragraph_style(node)
+        level = heading_level(text, style)
+        if level is not None:
+            active_section = text
+        para_id = node.attrib.get(f"{W14}paraId") or f"p{index:06d}"
+        locator = f"word/document.xml#para={para_id};index={index}"
+        paragraphs.append(
+            DocumentParagraph(
+                index=index,
+                locator=locator,
+                paragraph_id=para_id,
+                ooxml_path=ooxml_path,
+                text=text,
+                text_hash=text_hash(text),
+                style=style,
+                heading_level=level,
+                section_title=active_section,
+                in_table=in_table,
+                has_complex_content=has_complex_content(node),
+            )
+        )
+    return ThesisDocument(
+        source=str(source),
+        source_hash=_source_hash(source),
+        format="docx",
+        paragraphs=tuple(paragraphs),
+        package_parts=parts,
+        media_parts=tuple(name for name in parts if name.startswith("word/media/")),
+    )
+
+
+def load_text(path: str | Path) -> ThesisDocument:
+    source = Path(path)
+    text = source.read_text(encoding="utf-8", errors="ignore")
+    paragraphs: list[DocumentParagraph] = []
+    active_section = ""
+    for index, raw in enumerate(text.splitlines()):
+        value = raw.strip()
+        if not value:
+            continue
+        level = heading_level(value)
+        if level is not None:
+            active_section = value
+        digest = text_hash(value)
+        paragraphs.append(
+            DocumentParagraph(
+                index=index,
+                locator=f"text#paragraph={index};hash={digest[:8]}",
+                paragraph_id=f"text-{index}",
+                ooxml_path="",
+                text=value,
+                text_hash=digest,
+                style="",
+                heading_level=level,
+                section_title=active_section,
+                in_table=False,
+                has_complex_content=False,
+            )
+        )
+    return ThesisDocument(
+        source=str(source),
+        source_hash=_source_hash(source),
+        format=source.suffix.lower().lstrip(".") or "text",
+        paragraphs=tuple(paragraphs),
+        package_parts=(),
+        media_parts=(),
+    )
+
+
+def load_document(path: str | Path) -> ThesisDocument:
+    source = Path(path)
+    if source.suffix.lower() == ".docx":
+        return load_docx(source)
+    if source.suffix.lower() == ".json":
+        payload = json.loads(source.read_text(encoding="utf-8"))
+        if isinstance(payload, dict) and payload.get("source"):
+            candidate = Path(payload["source"])
+            if candidate.exists():
+                return load_document(candidate)
+    return load_text(source)

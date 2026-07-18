@@ -1,15 +1,3 @@
-[project]
-name = "thesis-revision-professor"
-version = "0.2.0"
-description = "Evidence-bound thesis revision, professor-style review, corpus strategy mining, and Word output."
-readme = "README.md"
-requires-python = ">=3.10"
-license = {text = "MIT"}
-authors = [{name = "thesis-revision-professor contributors"}]
-keywords = ["thesis", "dissertation", "codex", "skill", "docx", "academic-writing"]
-
-[project.scripts]
-thesis-review = "thesis_revision_professor.__main__:main"
-
-[tool.setuptools]
-packages = ["thesis_revision_professor"]
+[build-system]
+requires = ["setuptools>=58", "wheel"]
+build-backend = "setuptools.build_meta"
