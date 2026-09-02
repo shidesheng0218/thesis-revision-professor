@@ -1,0 +1,9 @@
+{
+  "schema_version": "1.0",
+  "profile_id": "apa7",
+  "version": "7",
+  "source": "user-selected style profile; verify current institutional requirements",
+  "required_sections": [],
+  "citation_style": "APA 7",
+  "requires_author_confirmation": true
+}

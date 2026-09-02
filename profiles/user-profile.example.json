@@ -1,0 +1,11 @@
+{
+  "schema_version": "1.0",
+  "profile_id": "my-institution-2026",
+  "version": "2026-01",
+  "source": "institution handbook supplied by author",
+  "required_sections": [["摘要", "abstract"], ["参考文献", "references"]],
+  "citation_style": "GB/T 7714-2015",
+  "font": {"eastAsia": "宋体", "body_pt": 12},
+  "margins_mm": {"top": 25, "right": 25, "bottom": 25, "left": 30},
+  "requires_author_confirmation": true
+}

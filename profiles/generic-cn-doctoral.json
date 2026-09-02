@@ -1,0 +1,9 @@
+{
+  "schema_version": "1.0",
+  "profile_id": "generic-cn-doctoral",
+  "version": "2026-01",
+  "source": "generic-safe-default; verify against the user's institution",
+  "required_sections": [["摘要", "abstract"], ["绪论", "引言", "introduction"], ["文献综述", "研究现状", "literature review"], ["研究方法", "方法", "methodology"], ["结果", "results"], ["讨论", "discussion"], ["结论", "conclusion"], ["参考文献", "references"]],
+  "citation_style": "GB/T 7714-2015 or institution-specific override",
+  "requires_author_confirmation": true
+}
