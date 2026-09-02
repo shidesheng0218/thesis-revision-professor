@@ -1,4 +1,4 @@
-"""V3 review and revise workflows used by both CLI and compatibility scripts."""
+"""V4 review and revise workflows used by both CLI and compatibility scripts."""
 
 from __future__ import annotations
 
@@ -9,13 +9,18 @@ from pathlib import Path
 from .audits import citation_audit, regression_audit, structure_audit
 from .claim_evidence import build_claim_graph
 from .corpus import derive_patterns, read_manifest, strategy_cards
+from .consistency import compare_documents, consistency_audit
 from .document_model import ThesisDocument, load_document
 from .docx_patch import patch_docx
 from .docx_report import write_docx
+from .evidence import build_ledger, normalise_manifest, read_manifest as read_evidence_manifest
+from .profiles import load_profile, profile_audit
 from .review_engine import (
     build_findings,
     build_review,
+    issue_fingerprint,
     merge_semantic_findings,
+    reviewer_disagreements,
     semantic_review_request,
     validate_semantic_payload,
 )
@@ -50,8 +55,8 @@ def _rubric(claim_graph: dict, strategy: dict, citations: dict, structure: dict)
     }
     average = round(sum(scores.values()) / len(scores), 2)
     return {
-        "schema_version": "3.0",
-        "name": "v3-evidence-bound-preflight",
+        "schema_version": "4.0",
+        "name": "v4-evidence-bound-preflight",
         "scores": scores,
         "average": average,
         "confidence": 0.62,
@@ -114,7 +119,7 @@ def _revision_plan(document: ThesisDocument, graph: dict, review: dict) -> dict:
             }
         )
     return {
-        "schema_version": "3.0",
+        "schema_version": "4.0",
         "plan_id": f"revision-plan-{document.source_hash[:16]}",
         "source": document.source,
         "source_hash": document.source_hash,
@@ -213,6 +218,46 @@ def _review_report(review: dict, graph: dict, strategy: dict, rubric: dict, regr
     return "\n".join(lines)
 
 
+def _auxiliary_findings(risks: list[dict], reviewer: str) -> list[dict]:
+    findings = []
+    for risk in risks:
+        rule_id = str(risk.get("rule_id", "AUX-RISK"))
+        locator = str(risk.get("locator", "word/document.xml"))
+        finding = str(risk.get("message", "需要人工复核的风险。"))
+        severity = str(risk.get("priority", "P1")) if str(risk.get("priority", "P1")) in {"P0", "P1", "P2"} else "P1"
+        confidence = float(risk.get("confidence", 0.7))
+        if confidence < 0.85 and severity == "P0":
+            severity = "P1"
+        fingerprint = issue_fingerprint(rule_id, locator, finding)
+        findings.append(
+            {
+                "id": f"{severity}-{rule_id}-{fingerprint[:8]}",
+                "fingerprint": fingerprint,
+                "rule_id": rule_id,
+                "reviewer": reviewer,
+                "role": reviewer,
+                "locator": locator,
+                "claim_ids": list(risk.get("claim_ids", [])),
+                "evidence_ids": list(risk.get("evidence_ids", [])),
+                "priority": severity,
+                "severity": severity,
+                "likelihood": round(confidence, 2),
+                "impact": {"P0": 0.95, "P1": 0.7, "P2": 0.35}[severity],
+                "confidence": round(confidence, 2),
+                "finding": finding,
+                "rationale": str(risk.get("rationale", "由确定性一致性/规范检查发现；不能替代语义判断。")),
+                "counterevidence": "需要作者材料或语义评审进一步核验。",
+                "recommended_action": str(risk.get("action", "核对相关章节与原始材料；不能凭空补写事实。")),
+                "acceptance_test": str(risk.get("acceptance_test", "作者确认事实并提供可定位依据，或记录合理豁免。")),
+                "evidence_class": "SOURCE_ORIGINAL",
+                "requires_author_confirmation": True,
+                "status": "open",
+                "source_engine": reviewer,
+            }
+        )
+    return findings
+
+
 def _analyze(
     input_path: str | Path,
     *,
@@ -221,6 +266,9 @@ def _analyze(
     method: str,
     stage: str,
     semantic_payload: dict | None = None,
+    profile_path: str | Path | None = None,
+    evidence_dir: str | Path | None = None,
+    evidence_manifest_path: str | Path | None = None,
 ) -> dict:
     document = load_document(input_path)
     graph = build_claim_graph(document)
@@ -229,9 +277,16 @@ def _analyze(
     text = "\n".join(item.text for item in document.paragraphs)
     strategy = select_strategy(text, discipline, method, level, stage)
     deterministic = build_findings(graph, strategy, citations, structure)
+    consistency = consistency_audit(document, graph)
+    profile = load_profile(profile_path)
+    profile_result = profile_audit(document, profile)
+    deterministic.extend(_auxiliary_findings(consistency.get("risks", []), "consistency_reviewer"))
+    deterministic.extend(_auxiliary_findings(profile_result.get("risks", []), "normative_profile_reviewer"))
     findings = merge_semantic_findings(deterministic, semantic_payload)
     review = build_review(findings, level, strategy["discipline"]["key"], strategy["method"]["key"])
     rubric = _rubric(graph, strategy, citations, structure)
+    evidence_root = Path(evidence_dir) if evidence_dir else Path(input_path).parent / "evidence"
+    manifest_path = Path(evidence_manifest_path) if evidence_manifest_path else evidence_root / "evidence_manifest.json"
     plan = _revision_plan(document, graph, review)
     plan.update(
         {
@@ -239,8 +294,14 @@ def _analyze(
             "discipline": strategy["discipline"]["key"],
             "method": strategy["method"]["key"],
             "stage": stage,
+            "profile_path": str(profile_path) if profile_path else None,
+            "evidence_dir": str(evidence_root),
+            "evidence_manifest_path": str(manifest_path),
         }
     )
+    raw_manifest = read_evidence_manifest(manifest_path) if manifest_path.exists() else {"items": []}
+    evidence = normalise_manifest(evidence_root, raw_manifest)
+    ledger = build_ledger(graph, evidence)
     return {
         "document_object": document,
         "document": document.to_dict(),
@@ -251,6 +312,11 @@ def _analyze(
         "review": review,
         "rubric": rubric,
         "revision_plan": plan,
+        "evidence_manifest": evidence,
+        "claim_evidence_ledger": ledger,
+        "consistency": consistency,
+        "profile": profile_result,
+        "reviewer_disagreement": reviewer_disagreements(semantic_payload),
     }
 
 
@@ -264,6 +330,9 @@ def review_workflow(
     stage: str = "blind-review",
     semantic_findings: str | Path | None = None,
     state_path: str | Path | None = None,
+    profile_path: str | Path | None = None,
+    evidence_dir: str | Path | None = None,
+    evidence_manifest_path: str | Path | None = None,
 ) -> dict:
     outdir = Path(outdir)
     outdir.mkdir(parents=True, exist_ok=True)
@@ -279,6 +348,9 @@ def review_workflow(
         method=method,
         stage=stage,
         semantic_payload=semantic_payload,
+        profile_path=profile_path,
+        evidence_dir=evidence_dir,
+        evidence_manifest_path=evidence_manifest_path,
     )
     document: ThesisDocument = result.pop("document_object")
     artifacts = {
@@ -291,6 +363,11 @@ def review_workflow(
         "rubric": outdir / "rubric_score.json",
         "revision_plan": outdir / "revision_plan.json",
         "semantic_request": outdir / "semantic_review_request.json",
+        "evidence_manifest": outdir / "evidence_manifest.json",
+        "claim_evidence_ledger": outdir / "claim_evidence_ledger.json",
+        "consistency": outdir / "consistency_matrix.json",
+        "profile": outdir / "profile_audit.json",
+        "reviewer_disagreement": outdir / "reviewer_disagreement.json",
     }
     result_keys = {
         "document_model": "document",
@@ -301,10 +378,15 @@ def review_workflow(
         "review": "review",
         "rubric": "rubric",
         "revision_plan": "revision_plan",
+        "evidence_manifest": "evidence_manifest",
+        "claim_evidence_ledger": "claim_evidence_ledger",
+        "consistency": "consistency",
+        "profile": "profile",
+        "reviewer_disagreement": "reviewer_disagreement",
     }
     for key, path in artifacts.items():
         if key == "semantic_request":
-            payload = semantic_review_request(result["document"], result["claim_graph"], result["strategy"], result["review"])
+            payload = semantic_review_request(result["document"], result["claim_graph"], result["strategy"], result["review"], ledger=result["claim_evidence_ledger"], consistency=result["consistency"], profile=result["profile"])
         else:
             payload = result[result_keys[key]]
         write_json(path, payload)
@@ -330,12 +412,12 @@ def review_workflow(
     convergence = {
         "p0_clear": result["review"]["summary"]["p0"] == 0,
         "p1_verified_or_waived": result["review"]["summary"]["p1"] == 0,
-        "evidence_controlled": result["claim_graph"]["unresolved_count"] == 0,
+        "evidence_controlled": result["claim_evidence_ledger"]["unresolved_claim_count"] == 0,
         "regression_passed": False,
         "word_fidelity_checked": False,
     }
     payload = {
-        "schema_version": "3.0",
+        "schema_version": "4.0",
         "input": str(input_path),
         "source_hash": document.source_hash,
         **result,
@@ -349,7 +431,7 @@ def review_workflow(
     round_file = outdir / "round_payload.json"
     write_json(state_file, state)
     write_json(round_file, payload)
-    return {"outdir": str(outdir), "report": str(report_docx), "state": str(state_file), "semantic_request": str(artifacts["semantic_request"])}
+    return {"outdir": str(outdir), "report": str(report_docx), "state": str(state_file), "semantic_request": str(artifacts["semantic_request"]), "ledger": str(artifacts["claim_evidence_ledger"]), "consistency": str(artifacts["consistency"])}
 
 
 def _allowed_changes(plan: dict) -> dict:
@@ -369,6 +451,7 @@ def revise_workflow(
     *,
     state_path: str | Path | None = None,
     tracked: bool = True,
+    comments: bool = False,
 ) -> dict:
     input_path = Path(input_path)
     outdir = Path(outdir)
@@ -380,7 +463,7 @@ def revise_workflow(
     candidate = outdir / "论文修改候选稿.docx"
     if input_path.suffix.lower() != ".docx":
         raise ValueError("V3 controlled revise currently requires a .docx source")
-    patch_log = patch_docx(input_path, candidate, plan, tracked=tracked, mark_unconfirmed=True)
+    patch_log = patch_docx(input_path, candidate, plan, tracked=tracked, mark_unconfirmed=True, comments=comments)
     after = load_document(candidate)
     regression = regression_audit(before, after, _allowed_changes(plan))
     final_docx = outdir / "论文修改稿.docx"
@@ -396,12 +479,19 @@ def revise_workflow(
         discipline=plan.get("discipline", "unknown"),
         method=plan.get("method", "unknown"),
         stage="regression-review",
+        profile_path=plan.get("profile_path"),
+        evidence_dir=plan.get("evidence_dir"),
+        evidence_manifest_path=plan.get("evidence_manifest_path"),
     )
     analysis.pop("document_object")
     write_json(outdir / "applied_revision_log.json", patch_log)
     write_json(outdir / "diff_audit.json", regression)
     write_json(outdir / "professor_panel.json", analysis["review"])
     write_json(outdir / "claim_evidence_graph.json", analysis["claim_graph"])
+    write_json(outdir / "claim_evidence_ledger.json", analysis["claim_evidence_ledger"])
+    write_json(outdir / "consistency_matrix.json", analysis["consistency"])
+    write_json(outdir / "profile_audit.json", analysis["profile"])
+    write_json(outdir / "evidence_manifest.json", analysis["evidence_manifest"])
     report_md = _review_report(analysis["review"], analysis["claim_graph"], analysis["strategy"], analysis["rubric"], regression)
     report_docx = outdir / "修改说明与盲审风险报告.docx"
     write_docx(report_docx, "修改说明与盲审风险报告", report_md)
@@ -411,12 +501,12 @@ def revise_workflow(
     convergence = {
         "p0_clear": analysis["review"]["summary"]["p0"] == 0,
         "p1_verified_or_waived": analysis["review"]["summary"]["p1"] == 0,
-        "evidence_controlled": analysis["claim_graph"]["unresolved_count"] == 0 or patch_log["marked_count"] > 0,
+        "evidence_controlled": analysis["claim_evidence_ledger"]["unresolved_claim_count"] == 0 or patch_log["marked_count"] > 0,
         "regression_passed": regression["regression_result"] == "pass",
         "word_fidelity_checked": not regression["package_parts_removed"] and not regression["media_parts_removed"],
     }
     payload = {
-        "schema_version": "3.0",
+        "schema_version": "4.0",
         "input": str(candidate),
         "source_hash": after.source_hash,
         **analysis,
@@ -439,6 +529,80 @@ def revise_workflow(
     }
 
 
+def evidence_template_workflow(evidence_dir: str | Path, out: str | Path) -> dict:
+    from .evidence import evidence_template
+
+    out = Path(out)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    write_json(out, evidence_template(evidence_dir))
+    return {"evidence_manifest": str(out)}
+
+
+def deep_review_workflow(input_path: str | Path, outdir: str | Path, **kwargs) -> dict:
+    """Prepare a five-round review war-room package.
+
+    Codex semantic review remains an explicit human/agent checkpoint.  The
+    trace records that checkpoint instead of pretending that deterministic
+    keyword rules completed a professor-level review.
+    """
+    result = review_workflow(input_path, outdir, **kwargs)
+    trace = {
+        "schema_version": "4.0",
+        "max_rounds": 5,
+        "current_round": 1,
+        "status": "awaiting_semantic_review",
+        "stages": [
+            {"round": 1, "name": "baseline_model", "status": "completed", "artifacts": [result["ledger"], result["consistency"]]},
+            {"round": 2, "name": "independent_professor_panel", "status": "awaiting_codex", "input": result["semantic_request"]},
+            {"round": 3, "name": "adversarial_review", "status": "pending", "stop_rule": "不能确认时 abstain"},
+            {"round": 4, "name": "confirmed_controlled_rewrite", "status": "pending", "stop_rule": "只应用 confirmed=true"},
+            {"round": 5, "name": "regression_and_convergence", "status": "pending", "stop_rule": "最多 5 轮；未收敛则 manual_review_required"},
+        ],
+        "next_action": "读取 semantic_review_request.json，按协议生成 semantic_findings.json，再运行 merge-semantic。",
+    }
+    path = Path(outdir) / "loop_trace.json"
+    write_json(path, trace)
+    state_path = Path(result["state"])
+    if state_path.exists():
+        state = read_json(state_path)
+        state.update({"schema_version": "4.0", "max_rounds": 5, "loop_trace": str(path), "deep_mode": True})
+        write_json(state_path, state)
+    return {**result, "loop_trace": str(path), "status": trace["status"]}
+
+
+def merge_semantic_workflow(review_dir: str | Path, findings_path: str | Path, outdir: str | Path) -> dict:
+    review_dir = Path(review_dir)
+    base = read_json(review_dir / "round_payload.json") if (review_dir / "round_payload.json").exists() else {}
+    plan_meta = base.get("revision_plan", {})
+    return review_workflow(
+        base.get("input") or str(review_dir / "论文修改稿.docx"),
+        outdir,
+        level=base.get("level", "master"),
+        discipline=base.get("discipline", "unknown"),
+        method=base.get("method", "unknown"),
+        stage="semantic-panel",
+        semantic_findings=findings_path,
+        state_path=review_dir / "revision_state.json",
+        profile_path=plan_meta.get("profile_path"),
+        evidence_dir=plan_meta.get("evidence_dir"),
+        evidence_manifest_path=plan_meta.get("evidence_manifest_path"),
+    )
+
+
+def consistency_workflow(before_path: str | Path, after_path: str | Path, out: str | Path) -> dict:
+    before = load_document(before_path)
+    after = load_document(after_path)
+    payload = compare_documents(before, after)
+    write_json(out, payload)
+    return {"consistency": str(out), "status": payload["status"]}
+
+
+def defense_workflow(review_dir: str | Path, outdir: str | Path) -> dict:
+    from .defense import build_defense_package
+
+    return build_defense_package(review_dir, outdir)
+
+
 def corpus_workflow(corpus_dir: str | Path, out: str | Path, *, rights_manifest: str | Path | None = None) -> dict:
     out = Path(out)
     out.parent.mkdir(parents=True, exist_ok=True)
@@ -455,6 +619,7 @@ def status_summary(state_path: str | Path) -> dict:
     active = state.get("issues", [])
     return {
         "round": state.get("round"),
+        "max_rounds": state.get("max_rounds", 5),
         "phase": state.get("phase"),
         "status": state.get("status"),
         "p0_count": sum(item.get("priority") == "P0" and item.get("status") != "resolved" for item in active),
@@ -463,6 +628,7 @@ def status_summary(state_path: str | Path) -> dict:
         "resolved_count": len(state.get("resolved", [])),
         "confirmation_queue_count": len(state.get("confirmation_queue", [])),
         "stable_rounds": state.get("stable_rounds", 0),
+        "deep_mode": bool(state.get("deep_mode", False)),
         "convergence": convergence,
         "can_export_final": bool(convergence) and all(convergence.values()),
         "next_step": "补充/确认修改计划后运行 revise。" if state.get("phase") == "revision_plan" else "处理未通过门禁并重新评审。",

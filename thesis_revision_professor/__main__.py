@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Product CLI for thesis-revision-professor v3."""
+"""Product CLI for thesis-revision-professor v4."""
 
 from __future__ import annotations
 
@@ -9,7 +9,18 @@ from pathlib import Path
 
 from .corpus import rights_template
 from .docx_report import write_docx
-from .workflow import corpus_workflow, review_workflow, revise_workflow, status_summary, write_json
+from .workflow import (
+    consistency_workflow,
+    corpus_workflow,
+    defense_workflow,
+    deep_review_workflow,
+    evidence_template_workflow,
+    merge_semantic_workflow,
+    review_workflow,
+    revise_workflow,
+    status_summary,
+    write_json,
+)
 
 
 def print_result(payload: dict) -> None:
@@ -27,6 +38,9 @@ def cmd_review(args: argparse.Namespace) -> None:
             stage=args.stage,
             semantic_findings=args.semantic_findings,
             state_path=args.state,
+            profile_path=args.profile,
+            evidence_dir=args.evidence_dir,
+            evidence_manifest_path=args.evidence_manifest,
         )
     )
 
@@ -39,6 +53,7 @@ def cmd_revise(args: argparse.Namespace) -> None:
             args.outdir,
             state_path=args.state,
             tracked=not args.clean_changes,
+            comments=args.comments,
         )
     )
 
@@ -55,6 +70,26 @@ def cmd_rights_template(args: argparse.Namespace) -> None:
 
 def cmd_status(args: argparse.Namespace) -> None:
     print_result(status_summary(args.state))
+
+
+def cmd_deep_review(args: argparse.Namespace) -> None:
+    print_result(deep_review_workflow(args.input, args.outdir, level=args.level, discipline=args.discipline, method=args.method, stage=args.stage, profile_path=args.profile, evidence_dir=args.evidence_dir, evidence_manifest_path=args.evidence_manifest))
+
+
+def cmd_merge_semantic(args: argparse.Namespace) -> None:
+    print_result(merge_semantic_workflow(args.review, args.findings, args.outdir))
+
+
+def cmd_evidence_template(args: argparse.Namespace) -> None:
+    print_result(evidence_template_workflow(args.evidence_dir, args.out))
+
+
+def cmd_consistency(args: argparse.Namespace) -> None:
+    print_result(consistency_workflow(args.before, args.after, args.out))
+
+
+def cmd_defense(args: argparse.Namespace) -> None:
+    print_result(defense_workflow(args.review, args.outdir))
 
 
 def cmd_demo(args: argparse.Namespace) -> None:
@@ -106,6 +141,9 @@ def build_parser() -> argparse.ArgumentParser:
     review.add_argument("--stage", default="blind-review")
     review.add_argument("--semantic-findings", help="Validated findings returned by Codex or another semantic reviewer")
     review.add_argument("--state", help="Previous revision_state.json")
+    review.add_argument("--profile", help="User-provided institution/style profile JSON")
+    review.add_argument("--evidence-dir", help="Directory containing user-authorized evidence")
+    review.add_argument("--evidence-manifest", help="Evidence manifest JSON")
     review.add_argument("--outdir", required=True)
     review.set_defaults(func=cmd_review)
 
@@ -113,7 +151,10 @@ def build_parser() -> argparse.ArgumentParser:
     revise.add_argument("input")
     revise.add_argument("--plan", required=True)
     revise.add_argument("--state", help="Previous revision_state.json")
-    revise.add_argument("--clean-changes", action="store_true", help="Write clean replacements instead of Word tracked changes")
+    changes = revise.add_mutually_exclusive_group()
+    changes.add_argument("--clean-changes", action="store_true", help="Write clean replacements instead of Word tracked changes")
+    changes.add_argument("--tracked", action="store_true", help="Write Word tracked changes (default)")
+    revise.add_argument("--comments", action="store_true", help="Add Word comments for manual and applied findings")
     revise.add_argument("--outdir", required=True)
     revise.set_defaults(func=cmd_revise)
 
@@ -132,7 +173,41 @@ def build_parser() -> argparse.ArgumentParser:
     status.add_argument("state")
     status.set_defaults(func=cmd_status)
 
-    demo = sub.add_parser("demo", help="Generate a synthetic, copyright-safe v3 demo")
+    deep = sub.add_parser("deep-review", help="Prepare a five-round evidence-grounded review war room")
+    deep.add_argument("input")
+    deep.add_argument("--level", choices=["master", "doctoral"], default="master")
+    deep.add_argument("--discipline", default="unknown")
+    deep.add_argument("--method", default="unknown")
+    deep.add_argument("--stage", default="blind-review")
+    deep.add_argument("--profile")
+    deep.add_argument("--evidence-dir")
+    deep.add_argument("--evidence-manifest")
+    deep.add_argument("--outdir", required=True)
+    deep.set_defaults(func=cmd_deep_review)
+
+    merge = sub.add_parser("merge-semantic", help="Merge Codex semantic findings into a review round")
+    merge.add_argument("--review", required=True)
+    merge.add_argument("--findings", required=True)
+    merge.add_argument("--outdir", required=True)
+    merge.set_defaults(func=cmd_merge_semantic)
+
+    evidence = sub.add_parser("evidence-template", help="Create an evidence manifest template")
+    evidence.add_argument("evidence_dir")
+    evidence.add_argument("--out", required=True)
+    evidence.set_defaults(func=cmd_evidence_template)
+
+    consistency = sub.add_parser("consistency", help="Compare two document models for cross-section changes")
+    consistency.add_argument("--before", required=True)
+    consistency.add_argument("--after", required=True)
+    consistency.add_argument("--out", required=True)
+    consistency.set_defaults(func=cmd_consistency)
+
+    defense = sub.add_parser("defense", help="Generate evidence-bound blind-review and defense questions")
+    defense.add_argument("--review", required=True)
+    defense.add_argument("--outdir", required=True)
+    defense.set_defaults(func=cmd_defense)
+
+    demo = sub.add_parser("demo", help="Generate a synthetic, copyright-safe v4 demo")
     demo.add_argument("--outdir")
     demo.set_defaults(func=cmd_demo)
     return parser

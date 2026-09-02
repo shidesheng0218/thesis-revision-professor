@@ -207,7 +207,7 @@ def build_review(findings: list[dict], level: str, discipline: str, method: str)
     elif counts["P1"] or counts["P2"]:
         risk = "minor revision"
     return {
-        "schema_version": "3.0",
+        "schema_version": "4.0",
         "level": level,
         "discipline": discipline,
         "method": method,
@@ -217,9 +217,9 @@ def build_review(findings: list[dict], level: str, discipline: str, method: str)
     }
 
 
-def semantic_review_request(document: dict, claim_graph: dict, strategy: dict, review: dict) -> dict:
+def semantic_review_request(document: dict, claim_graph: dict, strategy: dict, review: dict, *, ledger: dict | None = None, consistency: dict | None = None, profile: dict | None = None) -> dict:
     return {
-        "schema_version": "3.0",
+        "schema_version": "4.0",
         "task": "independent_semantic_professor_review",
         "instructions": [
             "只依据定位到的原文与用户材料审查，不补造数据、引用或结论。",
@@ -227,10 +227,28 @@ def semantic_review_request(document: dict, claim_graph: dict, strategy: dict, r
             "每条 finding 必须给 locator、rule_id、rationale、confidence 和 acceptance_test。",
             "不要重复确定性预检意见，除非能提供更具体的语义依据。",
         ],
+        "reviewer_roles": [
+            "chief_argument_reviewer",
+            "discipline_expert",
+            "method_expert",
+            "evidence_auditor",
+            "citation_norms_expert",
+            "integrity_ethics_expert",
+            "adversarial_blind_reviewer",
+        ],
+        "loop_rounds": {
+            "max_rounds": 5,
+            "round_2": "independent role reviews",
+            "round_3": "adversarial counterevidence and contradiction search",
+            "round_5": "regression and convergence review",
+        },
         "document": document,
         "claim_graph": claim_graph,
         "selected_strategy": strategy,
         "deterministic_review": review,
+        "claim_evidence_ledger": ledger or {},
+        "consistency_matrix": consistency or {},
+        "profile_audit": profile or {},
         "output_schema": {
             "findings": [
                 {
@@ -264,3 +282,28 @@ def validate_semantic_payload(payload: dict) -> list[str]:
         if not isinstance(confidence, (int, float)) or not 0 <= confidence <= 1:
             errors.append(f"findings[{index}].confidence must be between 0 and 1")
     return errors
+
+
+def reviewer_disagreements(semantic_payload: dict | None) -> dict:
+    """Preserve independent reviewer conflicts instead of silently choosing one."""
+    groups: dict[str, list[dict]] = {}
+    for item in (semantic_payload or {}).get("findings", []):
+        locator = str(item.get("locator", "word/document.xml"))
+        groups.setdefault(locator, []).append(item)
+    conflicts = []
+    for locator, items in groups.items():
+        reviewers = {str(item.get("reviewer", "unknown")) for item in items}
+        findings = {str(item.get("finding", "")).strip() for item in items}
+        severities = {str(item.get("severity", "P2")) for item in items}
+        if len(reviewers) > 1 and (len(findings) > 1 or len(severities) > 1):
+            conflicts.append({
+                "locator": locator,
+                "reviewers": sorted(reviewers),
+                "positions": [
+                    {"reviewer": item.get("reviewer"), "severity": item.get("severity"), "confidence": item.get("confidence", 0.7), "finding": item.get("finding", ""), "rationale": item.get("rationale", "")}
+                    for item in items
+                ],
+                "chief_adjudication_required": True,
+                "status": "open",
+            })
+    return {"schema_version": "4.0", "conflicts": conflicts, "count": len(conflicts)}

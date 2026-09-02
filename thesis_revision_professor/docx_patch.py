@@ -86,6 +86,74 @@ def _replace_paragraph(node: ET.Element, replacement: str, tracked: bool, change
     insertion.append(_run(replacement, rpr))
 
 
+def _comment_text(item: dict) -> str:
+    parts = [str(item.get("problem", "需要作者复核。"))]
+    if item.get("risk"):
+        parts.append(f"风险：{item['risk']}")
+    if item.get("acceptance_test"):
+        parts.append(f"验收：{item['acceptance_test']}")
+    if item.get("evidence_ids"):
+        parts.append("证据：" + ", ".join(map(str, item["evidence_ids"])))
+    return "\n".join(parts)
+
+
+def _add_comment_part(parts: dict[str, bytes], comment_id: int, text: str) -> None:
+    comments_name = "word/comments.xml"
+    if comments_name in parts:
+        root = ET.fromstring(parts[comments_name])
+    else:
+        root = ET.Element(f"{W}comments")
+    timestamp = dt.datetime.now(dt.timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+    comment = ET.SubElement(root, f"{W}comment", {f"{W}id": str(comment_id), f"{W}author": "thesis-revision-professor", f"{W}date": timestamp})
+    paragraph = ET.SubElement(comment, f"{W}p")
+    paragraph.append(_run(text, None))
+    parts[comments_name] = ET.tostring(root, encoding="utf-8", xml_declaration=True)
+
+
+def _enable_comments(parts: dict[str, bytes]) -> None:
+    content_types = ET.fromstring(parts["[Content_Types].xml"])
+    if not any(node.attrib.get("PartName") == "/word/comments.xml" for node in content_types.findall(f"{{{CT_NS}}}Override")):
+        ET.SubElement(content_types, f"{{{CT_NS}}}Override", {"PartName": "/word/comments.xml", "ContentType": "application/vnd.openxmlformats-officedocument.wordprocessingml.comments+xml"})
+        parts["[Content_Types].xml"] = ET.tostring(content_types, encoding="utf-8", xml_declaration=True)
+    rel_name = "word/_rels/document.xml.rels"
+    rels = ET.fromstring(parts[rel_name])
+    comments_type = "http://schemas.openxmlformats.org/officeDocument/2006/relationships/comments"
+    if not any(node.attrib.get("Type") == comments_type for node in rels.findall(f"{{{REL_NS}}}Relationship")):
+        used_ids = {node.attrib.get("Id") for node in rels.findall(f"{{{REL_NS}}}Relationship")}
+        index = 1
+        while f"rId{index}" in used_ids:
+            index += 1
+        ET.SubElement(rels, f"{{{REL_NS}}}Relationship", {"Id": f"rId{index}", "Type": comments_type, "Target": "comments.xml"})
+        parts[rel_name] = ET.tostring(rels, encoding="utf-8", xml_declaration=True)
+
+
+def _next_comment_id(root: ET.Element) -> int:
+    values = []
+    for node in root.iter(f"{W}commentRangeStart"):
+        value = node.attrib.get(f"{W}id", "")
+        if value.isdigit():
+            values.append(int(value))
+    return max(values, default=-1) + 1
+
+
+def _annotate_paragraph(node: ET.Element, comment_id: int) -> None:
+    ppr = node.find(f"{W}pPr")
+    children = [child for child in list(node) if child is not ppr]
+    for child in children:
+        node.remove(child)
+    start = ET.Element(f"{W}commentRangeStart", {f"{W}id": str(comment_id)})
+    end = ET.Element(f"{W}commentRangeEnd", {f"{W}id": str(comment_id)})
+    reference = ET.Element(f"{W}r")
+    reference.append(ET.Element(f"{W}commentReference", {f"{W}id": str(comment_id)}))
+    if ppr is not None:
+        node.append(ppr)
+    node.append(start)
+    for child in children:
+        node.append(child)
+    node.append(end)
+    node.append(reference)
+
+
 def _resolve_node(
     item: dict,
     by_locator: dict[str, ET.Element],
@@ -169,6 +237,7 @@ def patch_docx(
     *,
     tracked: bool = True,
     mark_unconfirmed: bool = True,
+    comments: bool = False,
 ) -> dict:
     source = Path(source)
     output = Path(output)
@@ -177,6 +246,8 @@ def patch_docx(
     document_root = ET.fromstring(parts["word/document.xml"])
     by_locator, by_hash, by_text = _paragraph_map(document_root)
     next_id = _next_change_id(document_root)
+    next_comment_id = _next_comment_id(document_root)
+    comments_added = 0
     results = []
     changed_nodes: set[int] = set()
     marker = " [需作者确认：缺少支撑材料]"
@@ -184,6 +255,15 @@ def patch_docx(
         patch_mode = item.get("patch_mode", "manual_only")
         should_patch = bool(item.get("confirmed")) or (mark_unconfirmed and patch_mode == "mark_unconfirmed")
         if not should_patch or patch_mode == "manual_only":
+            if comments and patch_mode == "manual_only":
+                node, resolution = _resolve_node(item, by_locator, by_hash, by_text)
+                if node is not None and not has_complex_content(node):
+                    _annotate_paragraph(node, next_comment_id)
+                    _add_comment_part(parts, next_comment_id, _comment_text(item))
+                    next_comment_id += 1
+                    comments_added += 1
+                    results.append({"id": item.get("id"), "status": "comment_added", "resolution": resolution, "locator": item.get("locator")})
+                    continue
             results.append({"id": item.get("id"), "status": "not_applied", "reason": "manual_or_unconfirmed"})
             continue
         node, resolution = _resolve_node(item, by_locator, by_hash, by_text)
@@ -215,12 +295,19 @@ def patch_docx(
             replacement = current.replace(target, target + marker, 1) if target else current + marker
             status = "marked_unconfirmed"
         _replace_paragraph(node, replacement, tracked, next_id)
+        if comments:
+            _annotate_paragraph(node, next_comment_id)
+            _add_comment_part(parts, next_comment_id, _comment_text(item))
+            next_comment_id += 1
+            comments_added += 1
         next_id += 2
         changed_nodes.add(id(node))
         results.append({"id": item.get("id"), "status": status, "resolution": resolution, "locator": item.get("locator")})
     parts["word/document.xml"] = ET.tostring(document_root, encoding="utf-8", xml_declaration=True)
     if tracked and any(item["status"] in {"applied_confirmed", "marked_unconfirmed"} for item in results):
         _enable_tracking(parts)
+    if comments_added:
+        _enable_comments(parts)
     output.parent.mkdir(parents=True, exist_ok=True)
     buffer = io.BytesIO()
     with zipfile.ZipFile(buffer, "w", compression=zipfile.ZIP_DEFLATED) as archive:
@@ -233,6 +320,7 @@ def patch_docx(
         "tracked_changes": tracked,
         "applied_count": sum(item["status"] == "applied_confirmed" for item in results),
         "marked_count": sum(item["status"] == "marked_unconfirmed" for item in results),
+        "comments_added": comments_added,
         "blocked_count": sum(item["status"] == "blocked" for item in results),
         "items": results,
     }

@@ -14,10 +14,11 @@ def _now() -> str:
 
 def initial_state() -> dict:
     return {
-        "schema_version": "3.0",
+        "schema_version": "4.0",
         "created_at": _now(),
         "updated_at": _now(),
         "round": 0,
+        "max_rounds": 5,
         "status": "initialized",
         "phase": "baseline_scan",
         "source_hash": None,
@@ -80,13 +81,20 @@ def advance_state(previous: dict | None, payload: dict, *, phase: str) -> dict:
         stable_rounds = 0
     convergence = payload.get("convergence", {})
     all_gates = bool(convergence) and all(convergence.values())
+    next_round = int(state.get("round", 0)) + 1
+    if next_round > int(state.get("max_rounds", 5)):
+        state_status = "manual_review_required"
+        state_phase = "manual_review"
+    else:
+        state_status = "complete" if all_gates else "in_progress"
+        state_phase = "word_export" if all_gates else phase
     state.update(
         {
-            "schema_version": "3.0",
+            "schema_version": "4.0",
             "updated_at": _now(),
-            "round": int(state.get("round", 0)) + 1,
-            "status": "complete" if all_gates else "in_progress",
-            "phase": "word_export" if all_gates else phase,
+            "round": next_round,
+            "status": state_status,
+            "phase": state_phase,
             "source_hash": payload.get("source_hash"),
             "issues": issues,
             "p0": [item for item in issues if item.get("priority") == "P0" and item.get("status") in ACTIVE],

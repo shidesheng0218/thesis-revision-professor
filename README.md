@@ -2,7 +2,7 @@
 
 中文 | [English summary](#english-summary)
 
-一个面向硕士、博士论文的开源混合审稿与 Word 受控修改系统。v3 将确定性安全引擎与 Codex 语义教授审查结合起来，提供主张—证据图、学科/方法路由、分阶段确认、跨轮次状态、回归回滚和保留原 DOCX 包结构的修订。
+一个面向硕士、博士论文的开源混合审稿与 Word 受控修改系统。v4 在 v3 基础上增加证据账本、跨章节一致性、五轮深度 Loop、Word 批注、规范 profile 和答辩问题包。
 
 本项目不会虚构数据、文献、实验、访谈、案例、政策、统计结果或结论，也不承诺毕业、答辩、盲审、发表或查重结果。
 
@@ -47,6 +47,44 @@ git clone https://github.com/shidesheng0218/thesis-revision-professor.git ~/.cod
 重启 Codex 后，把论文 `.docx` 路径交给它，并要求使用 `thesis-revision-professor`。
 
 ## 完整混合审稿
+
+### 五轮深度模式（推荐）
+
+```bash
+python3 -m thesis_revision_professor evidence-template ./evidence --out ./evidence/evidence_manifest.json
+python3 -m thesis_revision_professor deep-review thesis.docx \
+  --level master --discipline education --method qualitative \
+  --profile profiles/generic-cn-master.json \
+  --evidence-dir ./evidence \
+  --outdir outputs/round-001
+```
+
+这一步生成 `claim_evidence_ledger.json`、`consistency_matrix.json`、`loop_trace.json` 和 `semantic_review_request.json`。在 Codex 中按语义审查协议生成 `semantic_findings.json`，然后合并：
+
+```bash
+python3 -m thesis_revision_professor merge-semantic \
+  --review outputs/round-001 \
+  --findings semantic_findings.json \
+  --outdir outputs/round-002
+```
+
+作者确认修改计划后，生成带修订痕迹和批注的 Word：
+
+```bash
+python3 -m thesis_revision_professor revise thesis.docx \
+  --plan outputs/round-002/revision_plan.json \
+  --state outputs/round-002/revision_state.json \
+  --tracked --comments \
+  --outdir outputs/round-003
+```
+
+生成答辩准备包：
+
+```bash
+python3 -m thesis_revision_professor defense \
+  --review outputs/round-003 \
+  --outdir outputs/defense
+```
 
 第一轮确定性预检：
 
@@ -124,6 +162,14 @@ python3 -m thesis_revision_professor corpus ./legal-corpus \
 - 修改仅命中稳定 locator，并保留原 DOCX 的媒体与包部件；
 - 复杂 OOXML 段落拒绝自动修改；
 - 未授权事实、数字和引用变化触发回滚。
+
+## v4 可信增强
+
+- `claim_evidence_ledger.json` 统一登记论文和作者授权材料中的证据；未核验材料不会成为自动改写依据。
+- `consistency_matrix.json` 检查摘要、方法、结果、结论、表格和附录之间的事实关系。
+- `loop_trace.json` 固定记录五轮深度 Loop；达到上限仍未收敛时标记人工复核。
+- `--comments` 为人工判断项写入 Word 批注；批注失败时保留外部清单，不静默丢失。
+- `profiles/` 只提供通用安全 profile；学校规范应由用户提供并核对版本。
 
 ## 验证
 

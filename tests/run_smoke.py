@@ -16,7 +16,7 @@ sys.path.insert(0, str(ROOT))
 
 from thesis_revision_professor.document_model import load_document
 from thesis_revision_professor.docx_report import write_docx
-from thesis_revision_professor.workflow import corpus_workflow, review_workflow, revise_workflow, status_summary
+from thesis_revision_professor.workflow import corpus_workflow, defense_workflow, deep_review_workflow, review_workflow, revise_workflow, status_summary
 
 
 SAMPLE = """# 摘要
@@ -70,6 +70,12 @@ def main() -> None:
 
         review_dir = temp / "review"
         review_workflow(source, review_dir, level="master", discipline="education", method="qualitative")
+        assert (review_dir / "claim_evidence_ledger.json").exists()
+        assert (review_dir / "consistency_matrix.json").exists()
+        deep_dir = temp / "deep"
+        deep = deep_review_workflow(source, deep_dir, level="master", discipline="education", method="qualitative")
+        assert deep["status"] == "awaiting_semantic_review"
+        assert read(deep_dir / "loop_trace.json")["max_rounds"] == 5
         graph = read(review_dir / "claim_evidence_graph.json")
         questions = [item for item in graph["claims"] if item["claim_type"] in {"research_question", "research_aim"}]
         assert questions and all(item["status"] == "not_applicable" for item in questions)
@@ -101,6 +107,7 @@ def main() -> None:
             review_dir / "revision_plan.json",
             revise_dir,
             state_path=review_dir / "revision_state.json",
+            comments=True,
         )
         regression = read(revise_dir / "diff_audit.json")
         assert regression["regression_result"] == "pass"
@@ -108,9 +115,17 @@ def main() -> None:
         revised = load_document(revise_dir / "论文修改稿.docx")
         assert "word/media/image1.png" in revised.media_parts
         assert any("需作者确认" in item.text for item in revised.paragraphs)
+        with zipfile.ZipFile(revise_dir / "论文修改稿.docx") as archive:
+            assert "word/comments.xml" in archive.namelist()
+            assert "commentReference" in archive.read("word/document.xml").decode("utf-8")
         state = read(revise_dir / "revision_state.json")
         assert len(state["new_risks"]) == 0
         assert len(state["resolved"]) == 0
+
+        defense_dir = temp / "defense"
+        defense = defense_workflow(review_dir, defense_dir)
+        assert defense["question_count"] > 0
+        assert (defense_dir / "答辩问题库与应答准备.docx").exists()
 
         plan = read(review_dir / "revision_plan.json")
         evidence_item = next(item for item in plan["items"] if item["patch_mode"] == "mark_unconfirmed")
@@ -161,7 +176,7 @@ def main() -> None:
         summary = status_summary(revise_dir / "revision_state.json")
         assert summary["round"] == 2
         subprocess.run([sys.executable, "scripts/release_gate.py"], cwd=ROOT, check=True)
-    print("v3 smoke tests passed")
+    print("v4 smoke tests passed")
 
 
 if __name__ == "__main__":
