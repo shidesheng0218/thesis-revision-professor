@@ -1,6 +1,6 @@
 # Hybrid revision loop
 
-Use a two-layer loop. The deterministic layer protects facts and Word fidelity; the semantic layer performs independent professor-style reasoning.
+Use a two-layer, five-round war-room loop. The deterministic layer protects facts and Word fidelity; the Codex semantic layer performs independent professor-style reasoning.
 
 ## Outer loop
 
@@ -9,10 +9,11 @@ Use a two-layer loop. The deterministic layer protects facts and Word fidelity; 
 3. **Strategy route**: combine academic-integrity rules, school rules, degree level, discipline, method family, thesis stage, and language conventions. Confirm low-confidence discipline or method inference.
 4. **Deterministic preflight**: run citation, structure, claim, and DOCX package checks. Mark low-confidence absence as `needs_review`, never as a fabricated hard fact.
 5. **Independent semantic panel**: use `semantic_review_request.json` and `semantic-review-protocol.md`. Include evidence and counterevidence; abstain where verification is impossible.
-6. **Adjudication and plan**: deduplicate by stable fingerprint, prioritize dependencies, generate located `revision_plan.json`, then obtain author confirmation.
-7. **Controlled Word patch**: change only confirmed, concrete, located text. Preserve package parts. Mark unconfirmed evidence gaps; do not invent repairs.
-8. **Regression and re-review**: audit numbers, years, citations, media/package parts, and re-run review on the candidate.
-9. **State transition**: record open, confirmed, applied, verified, resolved, waived, blocked, reopened, or regressed issues.
+6. **Adversarial review**: actively search for contradictions, overclaiming, scope drift, and method-result mismatch; preserve reviewer disagreement.
+7. **Adjudication and plan**: deduplicate by stable fingerprint, prioritize dependencies, generate located `revision_plan.json`, then obtain author confirmation.
+8. **Controlled Word patch**: change only confirmed, concrete, located text. Preserve package parts. Use tracked changes for approved rewrites and comments for manual-only findings.
+9. **Regression and re-review**: audit numbers, years, citations, media/package parts, cross-section consistency, and re-run review on the candidate.
+10. **State transition**: record open, confirmed, applied, verified, resolved, waived, blocked, reopened, or regressed issues.
 
 ## Inner patch loop
 
@@ -28,4 +29,4 @@ Converge only when all are true:
 - all accepted patches pass regression and Word-fidelity gates;
 - no new P0/P1 risk appears in the final independent review.
 
-Stop and request author material after two low-improvement rounds or five total rounds by default. Never keep generating cosmetic advice to simulate progress.
+Stop and request author material after two low-improvement rounds or five total rounds by default. If five rounds are exhausted without passing the gates, set `manual_review_required`. Never keep generating cosmetic advice to simulate progress.

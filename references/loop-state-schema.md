@@ -19,6 +19,7 @@ Every issue uses a stable fingerprint generated from `rule_id`, locator, and nor
 - deliverables and regression summary;
 - convergence gates and stable-round count;
 - compact round history.
+- `max_rounds` (default `5`), `loop_trace`, and `manual_review_required` when the limit is exhausted.
 
 ## Gates
 
