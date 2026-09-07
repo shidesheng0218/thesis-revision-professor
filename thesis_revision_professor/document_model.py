@@ -23,6 +23,18 @@ def text_hash(text: str) -> str:
     return hashlib.sha256(normalized.encode("utf-8")).hexdigest()
 
 
+def fallback_paragraph_id(index: int) -> str:
+    """Deterministic paraId for paragraphs lacking w14:paraId.
+
+    Derived from the enumeration index only (never from text, which patches
+    modify), and matches the value docx_patch injects on write-back, so a
+    paragraph keeps the same locator identity across the review → revise round.
+    Drift from manual paragraph insertion persists only until the first patch
+    writes real w14:paraId attributes into the file.
+    """
+    return hashlib.sha256(f"p{index}|0|".encode("utf-8")).hexdigest()[:8].upper()
+
+
 def heading_level(text: str, style: str = "") -> int | None:
     match = re.search(r"heading\s*([1-6])", style, flags=re.I)
     if match:
@@ -99,6 +111,7 @@ class DocumentParagraph:
     section_title: str
     in_table: bool
     has_complex_content: bool
+    has_stable_locator: bool
 
 
 @dataclass(frozen=True)
@@ -109,16 +122,18 @@ class ThesisDocument:
     paragraphs: tuple[DocumentParagraph, ...]
     package_parts: tuple[str, ...]
     media_parts: tuple[str, ...]
+    layout: dict
 
     def to_dict(self) -> dict:
         return {
-            "schema_version": "3.0",
+            "schema_version": "4.0",
             "source": self.source,
             "source_hash": self.source_hash,
             "format": self.format,
             "paragraph_count": len(self.paragraphs),
             "package_parts": list(self.package_parts),
             "media_parts": list(self.media_parts),
+            "layout": self.layout,
             "paragraphs": [asdict(item) for item in self.paragraphs],
         }
 
@@ -135,7 +150,9 @@ def load_docx(path: str | Path) -> ThesisDocument:
     with zipfile.ZipFile(source) as archive:
         document_xml = archive.read("word/document.xml")
         parts = tuple(sorted(archive.namelist()))
+        styles_xml = archive.read("word/styles.xml") if "word/styles.xml" in archive.namelist() else None
     root = ET.fromstring(document_xml)
+    layout = _extract_layout(root, styles_xml)
     paragraphs: list[DocumentParagraph] = []
     active_section = ""
     for index, (node, ooxml_path, in_table) in enumerate(iter_paragraph_nodes(root)):
@@ -146,8 +163,11 @@ def load_docx(path: str | Path) -> ThesisDocument:
         level = heading_level(text, style)
         if level is not None:
             active_section = text
-        para_id = node.attrib.get(f"{W14}paraId") or f"p{index:06d}"
-        locator = f"word/document.xml#para={para_id};index={index}"
+        para_id = node.attrib.get(f"{W14}paraId")
+        has_stable_locator = para_id is not None
+        if not para_id:
+            para_id = fallback_paragraph_id(index)
+        locator = f"word/document.xml#para={para_id}"
         paragraphs.append(
             DocumentParagraph(
                 index=index,
@@ -161,6 +181,7 @@ def load_docx(path: str | Path) -> ThesisDocument:
                 section_title=active_section,
                 in_table=in_table,
                 has_complex_content=has_complex_content(node),
+                has_stable_locator=has_stable_locator,
             )
         )
     return ThesisDocument(
@@ -170,7 +191,44 @@ def load_docx(path: str | Path) -> ThesisDocument:
         paragraphs=tuple(paragraphs),
         package_parts=parts,
         media_parts=tuple(name for name in parts if name.startswith("word/media/")),
+        layout=layout,
     )
+
+
+def _extract_layout(document_root: ET.Element, styles_xml: bytes | None) -> dict:
+    """Pull default font/size from styles.xml docDefaults and per-section margins."""
+
+    layout: dict = {
+        "default_east_asia_font": None,
+        "default_size_pt": None,
+        "section_margins_twips": [],
+    }
+    if styles_xml:
+        try:
+            styles_root = ET.fromstring(styles_xml)
+        except ET.ParseError:
+            styles_root = None
+        if styles_root is not None:
+            rpr = styles_root.find(f"{W}docDefaults/{W}rPrDefault/{W}rPr")
+            if rpr is not None:
+                rfonts = rpr.find(f"{W}rFonts")
+                if rfonts is not None:
+                    layout["default_east_asia_font"] = rfonts.attrib.get(f"{W}eastAsia") or None
+                size = rpr.find(f"{W}sz")
+                value = size.attrib.get(f"{W}val", "") if size is not None else ""
+                if value.isdigit():
+                    layout["default_size_pt"] = int(value) / 2
+    for sect in document_root.iter(f"{W}sectPr"):
+        pgmar = sect.find(f"{W}pgMar")
+        if pgmar is None:
+            continue
+        margins = {}
+        for side in ("top", "right", "bottom", "left"):
+            value = pgmar.attrib.get(f"{W}{side}", "")
+            if value.lstrip("-").isdigit():
+                margins[side] = int(value)
+        layout["section_margins_twips"].append(margins)
+    return layout
 
 
 def load_text(path: str | Path) -> ThesisDocument:
@@ -199,6 +257,7 @@ def load_text(path: str | Path) -> ThesisDocument:
                 section_title=active_section,
                 in_table=False,
                 has_complex_content=False,
+                has_stable_locator=False,
             )
         )
     return ThesisDocument(
@@ -208,6 +267,7 @@ def load_text(path: str | Path) -> ThesisDocument:
         paragraphs=tuple(paragraphs),
         package_parts=(),
         media_parts=(),
+        layout={"default_east_asia_font": None, "default_size_pt": None, "section_margins_twips": []},
     )
 
 

@@ -33,3 +33,13 @@ If a paragraph contains drawings, fields, footnotes, endnotes, formulas or
 objects, the patcher must leave it unchanged and emit a manual action. A
 candidate with a failed regression audit is quarantined and the unchanged
 source is delivered as the final manuscript.
+
+## Locators and namespaces
+
+Paragraph locators are `word/document.xml#para={w14:paraId}`; the enumeration
+index is never part of the identity. When a source file lacks `w14:paraId`
+attributes, the patcher assigns deterministic unique ones while writing the
+candidate, so locators become file-stable from the first controlled patch.
+Serialized `word/document.xml` keeps the original namespace prefixes, and every
+prefix listed in `mc:Ignorable` must keep its `xmlns` declaration so Word does
+not prompt to repair the file.

@@ -24,7 +24,8 @@ def infer_method(text: str, requested: str = "unknown") -> tuple[str, float, lis
             continue
         hits = [marker for marker in profile.get("markers", []) if marker.lower() in lower]
         ranked.append((len(hits), key, hits))
-    ranked.sort(reverse=True)
+    # 命中数最多者优先；命中数相同时取 key 字典序最小者，保证路由稳定可预期。
+    ranked.sort(key=lambda item: (-item[0], item[1]))
     count, key, hits = ranked[0] if ranked else (0, "unknown", [])
     if count == 0:
         return "unknown", 0.0, []

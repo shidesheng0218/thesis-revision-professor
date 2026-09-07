@@ -4,21 +4,128 @@ from __future__ import annotations
 
 import copy
 import datetime as dt
+import hashlib
 import io
 import re
 import zipfile
 from pathlib import Path
 from xml.etree import ElementTree as ET
 
-from .document_model import W, W14, has_complex_content, iter_paragraph_nodes, paragraph_text, text_hash
+from .document_model import W, W14, fallback_paragraph_id, has_complex_content, iter_paragraph_nodes, paragraph_text, text_hash
 
 
 REL_NS = "http://schemas.openxmlformats.org/package/2006/relationships"
 CT_NS = "http://schemas.openxmlformats.org/package/2006/content-types"
 XML_NS = "http://www.w3.org/XML/1998/namespace"
+MC_NS = "http://schemas.openxmlformats.org/markup-compatibility/2006"
+MC = f"{{{MC_NS}}}"
 
 ET.register_namespace("w", W.removeprefix("{").removesuffix("}"))
 ET.register_namespace("w14", W14.removeprefix("{").removesuffix("}"))
+ET.register_namespace("mc", MC_NS)
+
+_XMLNS_RE = re.compile(r'xmlns(?::([A-Za-z_][\w.\-]*))?\s*=\s*"([^"]*)"')
+_NS0_RE = re.compile(r"ns\d+$")
+_IGNORABLE_RE = re.compile(r'mc:Ignorable\s*=\s*"([^"]*)"')
+
+
+def _extract_namespace_declarations(xml_text: str) -> dict[str | None, str]:
+    return {match.group(1): match.group(2) for match in _XMLNS_RE.finditer(xml_text)}
+
+
+def _register_namespaces(declarations: dict[str | None, str]) -> None:
+    """Re-register the original prefixes so serialization keeps them instead of ns0/ns1."""
+    for prefix, uri in declarations.items():
+        if prefix and (_NS0_RE.fullmatch(prefix) or prefix in {"xml", "xmlns"}):
+            continue
+        try:
+            ET.register_namespace(prefix or "", uri)
+        except ValueError:
+            continue
+
+
+def _root_start_tag_span(xml_text: str) -> tuple[int, int] | None:
+    """Return (start, end) offsets of the root element's start tag, quote-aware."""
+    open_end = xml_text.find(">")
+    if open_end < 0 or xml_text.startswith("<?xml", 0):
+        decl_end = xml_text.find("?>")
+        if decl_end < 0:
+            return None
+        open_end = xml_text.find(">", decl_end + 2)
+        if open_end < 0:
+            return None
+    start = xml_text.rfind("<", 0, open_end + 1)
+    if start < 0:
+        return None
+    quote = None
+    for pos in range(start, len(xml_text)):
+        char = xml_text[pos]
+        if quote:
+            if char == quote:
+                quote = None
+        elif char in {'"', "'"}:
+            quote = char
+        elif char == ">":
+            return start, pos + 1
+    return None
+
+
+def _restore_ignorable_namespaces(xml_bytes: bytes, declarations: dict[str | None, str]) -> bytes:
+    """Declare namespaces that only appear in mc:Ignorable but not in the serialized tree.
+
+    ElementTree drops declarations for prefixes it never serializes as element or
+    attribute names; Word then cannot resolve mc:Ignorable and may refuse the file.
+    """
+    xml_text = xml_bytes.decode("utf-8")
+    span = _root_start_tag_span(xml_text)
+    if not span:
+        return xml_bytes
+    start, end = span
+    start_tag = xml_text[start:end]
+    ignorable = _IGNORABLE_RE.search(start_tag)
+    if not ignorable:
+        return xml_bytes
+    missing = []
+    for prefix in ignorable.group(1).split():
+        if prefix and f"xmlns:{prefix}=" not in start_tag and declarations.get(prefix):
+            missing.append(f' xmlns:{prefix}="{declarations[prefix]}"')
+    if not missing:
+        return xml_bytes
+    return (xml_text[: end - 1] + "".join(missing) + xml_text[end - 1 :]).encode("utf-8")
+
+
+def _ensure_paragraph_ids(root: ET.Element) -> int:
+    """Assign a deterministic unique w14:paraId to every w:p that lacks one."""
+    used = set()
+    for node in root.iter(f"{W}p"):
+        para_id = node.attrib.get(f"{W14}paraId")
+        if para_id:
+            used.add(para_id.upper())
+    injected = 0
+    for index, (node, _path, _in_table) in enumerate(iter_paragraph_nodes(root)):
+        if node.attrib.get(f"{W14}paraId"):
+            continue
+        candidate = None
+        for salt in range(1024):
+            digest = hashlib.sha256(f"p{index}|{salt}|".encode("utf-8")).hexdigest()[:8].upper()
+            if digest not in used:
+                candidate = digest
+                used.add(digest)
+                break
+        if candidate is None:
+            candidate = f"{index + 1:08X}"[-8:]
+            while candidate in used:
+                candidate = f"{(int(candidate, 16) + 1) & 0xFFFFFFFF:08X}"
+            used.add(candidate)
+        node.set(f"{W14}paraId", candidate)
+        injected += 1
+    if injected:
+        ignorable = root.attrib.get(f"{MC}Ignorable")
+        if ignorable is None:
+            root.set(f"{MC}Ignorable", "w14")
+        elif "w14" not in ignorable.split():
+            root.set(f"{MC}Ignorable", f"{ignorable} w14")
+    return injected
 
 
 def _paragraph_map(root: ET.Element) -> tuple[dict[str, ET.Element], dict[str, ET.Element], dict[str, list[ET.Element]]]:
@@ -29,8 +136,8 @@ def _paragraph_map(root: ET.Element) -> tuple[dict[str, ET.Element], dict[str, E
         text = paragraph_text(node)
         if not text:
             continue
-        para_id = node.attrib.get(f"{W14}paraId") or f"p{index:06d}"
-        locator = f"word/document.xml#para={para_id};index={index}"
+        para_id = node.attrib.get(f"{W14}paraId")
+        locator = f"word/document.xml#para={para_id}" if para_id else f"word/document.xml#para={fallback_paragraph_id(index)}"
         by_locator[locator] = node
         by_hash.setdefault(text_hash(text), []).append(node)
         by_text.setdefault(text, []).append(node)
@@ -243,7 +350,10 @@ def patch_docx(
     output = Path(output)
     with zipfile.ZipFile(source) as archive:
         parts = {name: archive.read(name) for name in archive.namelist()}
-    document_root = ET.fromstring(parts["word/document.xml"])
+    raw_document = parts["word/document.xml"].decode("utf-8")
+    declarations = _extract_namespace_declarations(raw_document)
+    _register_namespaces(declarations)
+    document_root = ET.fromstring(raw_document)
     by_locator, by_hash, by_text = _paragraph_map(document_root)
     next_id = _next_change_id(document_root)
     next_comment_id = _next_comment_id(document_root)
@@ -303,7 +413,10 @@ def patch_docx(
         next_id += 2
         changed_nodes.add(id(node))
         results.append({"id": item.get("id"), "status": status, "resolution": resolution, "locator": item.get("locator")})
-    parts["word/document.xml"] = ET.tostring(document_root, encoding="utf-8", xml_declaration=True)
+    injected_ids = _ensure_paragraph_ids(document_root)
+    parts["word/document.xml"] = _restore_ignorable_namespaces(
+        ET.tostring(document_root, encoding="utf-8", xml_declaration=True), declarations
+    )
     if tracked and any(item["status"] in {"applied_confirmed", "marked_unconfirmed"} for item in results):
         _enable_tracking(parts)
     if comments_added:
@@ -322,5 +435,6 @@ def patch_docx(
         "marked_count": sum(item["status"] == "marked_unconfirmed" for item in results),
         "comments_added": comments_added,
         "blocked_count": sum(item["status"] == "blocked" for item in results),
+        "paragraph_ids_injected": injected_ids,
         "items": results,
     }

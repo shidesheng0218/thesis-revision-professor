@@ -63,7 +63,7 @@ def citation_audit(document: ThesisDocument) -> dict:
             }
         )
     return {
-        "schema_version": "3.0",
+        "schema_version": "4.0",
         "reference_heading_locator": paragraphs[reference_index].locator if reference_index is not None else None,
         "citation_count": len(body_markers),
         "reference_count": len(references),
@@ -108,7 +108,7 @@ def structure_audit(document: ThesisDocument) -> dict:
                 }
             )
     return {
-        "schema_version": "3.0",
+        "schema_version": "4.0",
         "paragraph_count": len(document.paragraphs),
         "heading_count": len(headings),
         "chapter_count": sum(1 for item in headings if item.heading_level == 1),
@@ -162,7 +162,7 @@ def regression_audit(before: ThesisDocument, after: ThesisDocument, allowed_chan
     if media_removed:
         violations.append(f"媒体部件丢失：{', '.join(media_removed)}")
     return {
-        "schema_version": "3.0",
+        "schema_version": "4.0",
         "changes": changes,
         "package_parts_removed": package_removed,
         "media_parts_removed": media_removed,

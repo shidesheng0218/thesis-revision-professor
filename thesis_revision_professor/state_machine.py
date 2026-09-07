@@ -49,10 +49,15 @@ def advance_state(previous: dict | None, payload: dict, *, phase: str) -> dict:
     for item in payload.get("review", {}).get("issues", []):
         key = item.get("fingerprint", item.get("id"))
         value = dict(item)
-        if key in prior and prior[key].get("status") in {"resolved", "waived"}:
-            value["status"] = "reopened"
-        elif key in prior:
-            value["status"] = prior[key].get("status", "open")
+        if key in prior:
+            prior_status = prior[key].get("status", "open")
+            if prior_status in {"resolved", "waived"}:
+                value["status"] = "reopened"
+            elif prior_status == "applied":
+                # 已应用的修改在本轮 findings 中再次出现：修改未生效或被回改。
+                value["status"] = "regressed"
+            else:
+                value["status"] = prior_status
         else:
             value["status"] = "open"
             if value.get("priority") in {"P0", "P1"}:

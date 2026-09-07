@@ -1,5 +1,5 @@
 {
-  "schema_version": "3.0",
+  "schema_version": "4.0",
   "precedence": ["academic_integrity", "school_rules", "method_validity", "degree_level", "discipline", "language_style"],
   "disciplines": {
     "generic": {

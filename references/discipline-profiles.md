@@ -37,3 +37,22 @@ Expect creative/problem context, work or case analysis, method of practice/resea
 ## Interdisciplinary
 
 State the primary evaluation lens first, then map secondary fields. Avoid applying one discipline's rubric blindly to another.
+
+## Institution profile layout fields
+
+An institution profile JSON may declare layout requirements alongside
+`required_sections`:
+
+- `font.eastAsia`: required default East Asian font name, compared against
+  `word/styles.xml` `w:docDefaults` `w:rFonts/@w:eastAsia`;
+- `font.body_pt`: required default body size in points, compared against
+  `w:docDefaults/w:sz` (half-points, divided by two);
+- `margins_mm`: per-side page margins in millimetres (`top`, `right`,
+  `bottom`, `left`), compared against every `w:sectPr/w:pgMar` (twips,
+  1 mm ≈ 56.6929 twips) with a ±1 mm tolerance.
+
+A mismatch raises a P2 `PROF-LAYOUT-FONT` / `PROF-LAYOUT-MARGINS` finding that
+requires author confirmation; final layout authority stays with the school
+regulations and human typesetting. Fields that are absent from the profile are
+not checked, and layout facts missing from the document (no styles part, no
+section margins) are treated as unknown rather than non-compliant.

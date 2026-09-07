@@ -189,7 +189,7 @@ def build_claim_graph(document: ThesisDocument) -> dict:
             claim_index += 1
     unresolved = [item for item in claims if item.status == "unresolved"]
     return {
-        "schema_version": "3.0",
+        "schema_version": "4.0",
         "source": document.source,
         "source_hash": document.source_hash,
         "claim_count": len(claims),

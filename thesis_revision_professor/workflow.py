@@ -501,7 +501,7 @@ def revise_workflow(
     convergence = {
         "p0_clear": analysis["review"]["summary"]["p0"] == 0,
         "p1_verified_or_waived": analysis["review"]["summary"]["p1"] == 0,
-        "evidence_controlled": analysis["claim_evidence_ledger"]["unresolved_claim_count"] == 0 or patch_log["marked_count"] > 0,
+        "evidence_controlled": analysis["claim_evidence_ledger"]["unresolved_claim_count"] == 0 and patch_log["marked_count"] == 0,
         "regression_passed": regression["regression_result"] == "pass",
         "word_fidelity_checked": not regression["package_parts_removed"] and not regression["media_parts_removed"],
     }

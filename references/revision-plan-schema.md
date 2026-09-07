@@ -8,6 +8,15 @@
 - `mode: staged_confirmation`;
 - item-level stable locator, paragraph hash, target text, risk, acceptance test, and allowed invariant changes.
 
+## Locator format
+
+`word/document.xml#para={w14:paraId}`. The locator identity is the paragraph's
+`w14:paraId` only; the enumeration index is never part of it, so inserting
+paragraphs before a target does not drift its locator. Files without
+`w14:paraId` (WPS or old Word exports) use a deterministic index-derived id at
+parse time, and the patcher writes real `w14:paraId` attributes on the first
+controlled patch, after which locators are stable in the file itself.
+
 ## Item modes
 
 - `mark_unconfirmed`: preserve the claim and append an author-confirmation marker; never treat it as repaired evidence.
@@ -18,7 +27,7 @@
 {
   "id": "PLAN-CLM-00021",
   "confirmed": false,
-  "locator": "word/document.xml#para=00A1;index=48",
+  "locator": "word/document.xml#para=00A1CE42",
   "target_hash": "...",
   "target_text": "本文证明……",
   "patch_mode": "mark_unconfirmed",

@@ -21,7 +21,7 @@ jobs:
       - name: Build and run installed wheel
         run: |
           python -m pip wheel . --no-deps --no-build-isolation -w /tmp/trp-wheel
-          python -m pip install --no-deps --target /tmp/trp-installed /tmp/trp-wheel/thesis_revision_professor-0.3.0-py3-none-any.whl
+          python -m pip install --no-deps --target /tmp/trp-installed /tmp/trp-wheel/thesis_revision_professor-*.whl
           PYTHONPATH=/tmp/trp-installed python -m thesis_revision_professor --help
       - name: Release gate
         run: python scripts/release_gate.py

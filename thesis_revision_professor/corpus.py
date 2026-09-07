@@ -85,7 +85,7 @@ def derive_patterns(corpus_dir: str | Path, manifest: dict | None) -> dict:
     citation_counts = [item["citation_marker_count"] for item in documents]
     paragraph_counts = [item["paragraph_count"] for item in documents]
     return {
-        "schema_version": "3.0",
+        "schema_version": "4.0",
         "authorized_document_count": len(documents),
         "rejected_unverified_count": rejected,
         "section_frequency": dict(frequencies),
