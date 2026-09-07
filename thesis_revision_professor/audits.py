@@ -11,6 +11,29 @@ from .document_model import ThesisDocument
 
 REFERENCE_TITLES = {"参考文献", "references", "bibliography"}
 
+# 确认标记统一在此定义：docx_patch 生成标记、回归审计剥离标记都引用同一处，
+# 避免两处正则漂移。剥离时连同标记前的空白一起移除。
+CONFIRMATION_MARKER_PREFIX = "[需作者确认:"
+CONFIRMATION_MARKER_RE = re.compile(r"\s*" + re.escape(CONFIRMATION_MARKER_PREFIX) + r"[^\[\]]*\]")
+
+
+def confirmation_marker(reason: str) -> str:
+    return f" {CONFIRMATION_MARKER_PREFIX}{reason}]"
+
+
+def strip_confirmation_markers(text: str) -> str:
+    return CONFIRMATION_MARKER_RE.sub("", text)
+
+
+# 数值 invariant：支持负号、千分位(1,247)、小数(3.14)与百分号(-2.3%)。
+# 取向是"宁可少报、不可误报"：token 内部不允许字母/下划线/小数点拼接
+# (如 v1.2、GB_7714 不整体入表)，后续紧跟字母或数字的匹配被丢弃，
+# 版本号、编号类内容因此不易被误当数值变化。
+NUMBER_TOKEN_RE = re.compile(r"(?<![A-Za-z0-9_.])(?:-?(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?%?)(?![A-Za-z0-9])")
+# 年份 invariant：合理的四位年份范围取 1600-2099(学位论文引文罕见更早)，
+# 两侧加数字边界，避免从更长数字串中误切。
+YEAR_TOKEN_RE = re.compile(r"(?<!\d)(?:1[6-9]\d{2}|20\d{2})(?!\d)")
+
 
 def citation_audit(document: ThesisDocument) -> dict:
     paragraphs = list(document.paragraphs)
@@ -125,10 +148,11 @@ def structure_audit(document: ThesisDocument) -> dict:
 
 
 def invariant_snapshot(document: ThesisDocument) -> dict:
-    text = "\n".join(paragraph.text for paragraph in document.paragraphs)
+    # 先剥离作者确认标记：标记文本(及其未来可能出现的数字)不参与数字/年份/citation 比对。
+    text = "\n".join(strip_confirmation_markers(paragraph.text) for paragraph in document.paragraphs)
     return {
-        "numbers": Counter(re.findall(r"(?<![A-Za-z])\d+(?:\.\d+)?%?(?![A-Za-z])", text)),
-        "years": Counter(re.findall(r"(?:19|20)\d{2}", text)),
+        "numbers": Counter(NUMBER_TOKEN_RE.findall(text)),
+        "years": Counter(YEAR_TOKEN_RE.findall(text)),
         "citations": Counter(citation_markers(text)),
         "media_parts": list(document.media_parts),
         "package_parts": list(document.package_parts),

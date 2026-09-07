@@ -20,6 +20,7 @@ from .review_engine import (
     build_review,
     issue_fingerprint,
     merge_semantic_findings,
+    merge_semantic_findings_with_rejections,
     reviewer_disagreements,
     semantic_review_request,
     validate_semantic_payload,
@@ -282,7 +283,7 @@ def _analyze(
     profile_result = profile_audit(document, profile)
     deterministic.extend(_auxiliary_findings(consistency.get("risks", []), "consistency_reviewer"))
     deterministic.extend(_auxiliary_findings(profile_result.get("risks", []), "normative_profile_reviewer"))
-    findings = merge_semantic_findings(deterministic, semantic_payload)
+    findings, semantic_rejections = merge_semantic_findings_with_rejections(deterministic, semantic_payload)
     review = build_review(findings, level, strategy["discipline"]["key"], strategy["method"]["key"])
     rubric = _rubric(graph, strategy, citations, structure)
     evidence_root = Path(evidence_dir) if evidence_dir else Path(input_path).parent / "evidence"
@@ -317,6 +318,7 @@ def _analyze(
         "consistency": consistency,
         "profile": profile_result,
         "reviewer_disagreement": reviewer_disagreements(semantic_payload),
+        "semantic_rejections": semantic_rejections,
     }
 
 
@@ -368,6 +370,7 @@ def review_workflow(
         "consistency": outdir / "consistency_matrix.json",
         "profile": outdir / "profile_audit.json",
         "reviewer_disagreement": outdir / "reviewer_disagreement.json",
+        "semantic_rejections": outdir / "semantic_rejections.json",
     }
     result_keys = {
         "document_model": "document",
@@ -383,6 +386,7 @@ def review_workflow(
         "consistency": "consistency",
         "profile": "profile",
         "reviewer_disagreement": "reviewer_disagreement",
+        "semantic_rejections": "semantic_rejections",
     }
     for key, path in artifacts.items():
         if key == "semantic_request":

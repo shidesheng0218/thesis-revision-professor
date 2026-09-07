@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
+from .review_engine import issue_fingerprint, legacy_fingerprint
+
 
 ACTIVE = {"open", "confirmed", "applied", "reopened", "blocked", "regressed"}
 
@@ -41,16 +43,52 @@ def _legacy_issues(state: dict) -> list[dict]:
     return [item for bucket in ("p0", "p1", "p2") for item in state.get(bucket, [])]
 
 
+def _identity_keys(item: dict) -> list[str]:
+    """All fingerprints under which a stored issue may be known.
+
+    Older states used wording-dependent fingerprints; newer ones use
+    rule_id|locator. Recompute both so either generation matches.
+    """
+    keys = []
+    stored = item.get("fingerprint") or item.get("id")
+    if stored:
+        keys.append(stored)
+    rule_id = str(item.get("rule_id", ""))
+    locator = str(item.get("locator", ""))
+    if rule_id and locator:
+        keys.append(issue_fingerprint(rule_id, locator))
+        keys.append(legacy_fingerprint(rule_id, locator, str(item.get("finding", ""))))
+    return keys
+
+
+def _normalize_fingerprint(item: dict) -> dict:
+    """Rewrite an issue onto the current (wording-independent) fingerprint."""
+    item = dict(item)
+    rule_id = str(item.get("rule_id", ""))
+    locator = str(item.get("locator", ""))
+    if rule_id and locator:
+        item["fingerprint"] = issue_fingerprint(rule_id, locator)
+    return item
+
+
 def advance_state(previous: dict | None, payload: dict, *, phase: str) -> dict:
     state = dict(previous or initial_state())
-    prior = {item.get("fingerprint", item.get("id")): dict(item) for item in _legacy_issues(state)}
+    prior_items = [dict(item) for item in _legacy_issues(state)]
+    prior_by_key: dict[str, dict] = {}
+    for item in prior_items:
+        for key in _identity_keys(item):
+            prior_by_key.setdefault(key, item)
     current = {}
+    matched_prior: set[str] = set()
     new_risks = []
     for item in payload.get("review", {}).get("issues", []):
         key = item.get("fingerprint", item.get("id"))
-        value = dict(item)
-        if key in prior:
-            prior_status = prior[key].get("status", "open")
+        value = _normalize_fingerprint(item)
+        value_key = value.get("fingerprint", key)
+        prior_item = prior_by_key.get(key) or prior_by_key.get(value_key)
+        if prior_item is not None:
+            matched_prior.add(prior_item.get("fingerprint", prior_item.get("id")))
+            prior_status = prior_item.get("status", "open")
             if prior_status in {"resolved", "waived"}:
                 value["status"] = "reopened"
             elif prior_status == "applied":
@@ -62,12 +100,15 @@ def advance_state(previous: dict | None, payload: dict, *, phase: str) -> dict:
             value["status"] = "open"
             if value.get("priority") in {"P0", "P1"}:
                 new_risks.append(value)
-        current[key] = value
-    resolved = list(state.get("resolved", []))
+        current[value_key] = value
+    resolved = [_normalize_fingerprint(item) for item in state.get("resolved", [])]
     resolved_keys = {item.get("fingerprint", item.get("id")) for item in resolved}
-    for key, item in prior.items():
-        if key not in current and item.get("status", "open") in ACTIVE and key not in resolved_keys:
-            value = dict(item)
+    for item in prior_items:
+        identity = item.get("fingerprint", item.get("id"))
+        if identity in matched_prior or identity in current or identity in resolved_keys:
+            continue
+        if item.get("status", "open") in ACTIVE:
+            value = _normalize_fingerprint(item)
             value["status"] = "resolved"
             value["resolved_at"] = _now()
             resolved.append(value)

@@ -37,7 +37,19 @@ def display_label(value: str) -> str:
     return LABELS.get(value, value)
 
 
-def issue_fingerprint(rule_id: str, locator: str, finding: str) -> str:
+def issue_fingerprint(rule_id: str, locator: str, finding: str = "") -> str:
+    """Stable identity: wording-independent, so reviewer phrasing never breaks chains.
+
+    Only `rule_id` and `locator` feed the digest; `finding` is accepted for
+    backward compatibility and ignored. Use `legacy_fingerprint` when matching
+    states written by older versions.
+    """
+    raw = f"{rule_id}|{locator}".encode("utf-8")
+    return hashlib.sha256(raw).hexdigest()[:20]
+
+
+def legacy_fingerprint(rule_id: str, locator: str, finding: str) -> str:
+    """Pre-decoupling fingerprint (rule_id | locator | normalized finding)."""
     normalized = re.sub(r"\s+", " ", finding).strip().lower()
     raw = f"{rule_id}|{locator}|{normalized}".encode("utf-8")
     return hashlib.sha256(raw).hexdigest()[:20]
@@ -169,14 +181,13 @@ def build_findings(claim_graph: dict, strategy: dict, citations: dict, structure
     )
 
 
-def merge_semantic_findings(deterministic: list[dict], semantic_payload: dict | None) -> list[dict]:
+def merge_semantic_findings_with_rejections(deterministic: list[dict], semantic_payload: dict | None) -> tuple[list[dict], list[dict]]:
+    """Merge accepted semantic findings; rejected ones are returned with reasons."""
     if not semantic_payload:
-        return deterministic
+        return deterministic, []
+    accepted, rejected = partition_semantic_findings(semantic_payload)
     merged = {item["fingerprint"]: item for item in deterministic}
-    for raw in semantic_payload.get("findings", []):
-        required = {"rule_id", "reviewer", "locator", "finding", "severity", "rationale", "recommended_action", "acceptance_test"}
-        if not required.issubset(raw):
-            continue
+    for raw in accepted:
         item = _issue(
             rule_id=str(raw["rule_id"]),
             reviewer=str(raw["reviewer"]),
@@ -194,7 +205,12 @@ def merge_semantic_findings(deterministic: list[dict], semantic_payload: dict | 
         item["source_engine"] = "semantic_professor_review"
         item["counterevidence"] = str(raw.get("counterevidence", item["counterevidence"]))
         merged[item["fingerprint"]] = item
-    return sorted(merged.values(), key=lambda item: ({"P0": 0, "P1": 1, "P2": 2}.get(item["priority"], 9), item["id"]))
+    return sorted(merged.values(), key=lambda item: ({"P0": 0, "P1": 1, "P2": 2}.get(item["priority"], 9), item["id"])), rejected
+
+
+def merge_semantic_findings(deterministic: list[dict], semantic_payload: dict | None) -> list[dict]:
+    merged, _rejected = merge_semantic_findings_with_rejections(deterministic, semantic_payload)
+    return merged
 
 
 def build_review(findings: list[dict], level: str, discipline: str, method: str) -> dict:
@@ -271,16 +287,60 @@ def semantic_review_request(document: dict, claim_graph: dict, strategy: dict, r
     }
 
 
+SEMANTIC_REQUIRED_FIELDS = ("rule_id", "reviewer", "locator", "severity", "confidence", "finding", "rationale", "recommended_action", "acceptance_test")
+SEMANTIC_OPTIONAL_FIELDS = ("claim_ids", "evidence_ids", "counterevidence", "requires_author_confirmation")
+# 语义 finding 必须锚定到段落 locator;兼容历史 ;index= 形式。
+SEMANTIC_LOCATOR_RE = re.compile(r"^word/document\.xml#para=\S+$")
+SEMANTIC_SEVERITIES = {"P0", "P1", "P2"}
+
+
+def validate_semantic_finding(item: object) -> list[str]:
+    """Per-finding validation; returns human-readable rejection reasons."""
+    if not isinstance(item, dict):
+        return ["finding must be a JSON object"]
+    reasons = []
+    for field in SEMANTIC_REQUIRED_FIELDS:
+        value = item.get(field)
+        if value is None or (isinstance(value, str) and not value.strip()):
+            reasons.append(f"missing required field: {field}")
+    severity = item.get("severity")
+    if severity is not None and severity not in SEMANTIC_SEVERITIES:
+        reasons.append(f"severity must be one of P0/P1/P2, got {severity!r}")
+    confidence = item.get("confidence")
+    if confidence is not None and (
+        isinstance(confidence, bool) or not isinstance(confidence, (int, float)) or not 0 <= confidence <= 1
+    ):
+        reasons.append(f"confidence must be a number between 0 and 1, got {confidence!r}")
+    locator = item.get("locator")
+    if locator is not None and (not isinstance(locator, str) or not SEMANTIC_LOCATOR_RE.match(locator)):
+        reasons.append(f"locator must look like word/document.xml#para=..., got {locator!r}")
+    return reasons
+
+
+def partition_semantic_findings(payload: dict | None) -> tuple[list[dict], list[dict]]:
+    """Split payload findings into accepted raw findings and rejected diagnostics."""
+    accepted: list[dict] = []
+    rejected: list[dict] = []
+    for index, item in enumerate((payload or {}).get("findings", [])):
+        reasons = validate_semantic_finding(item)
+        if reasons:
+            rejected.append({"index": index, "reasons": reasons, "finding": item if isinstance(item, dict) else repr(item)})
+        else:
+            accepted.append(item)
+    return accepted, rejected
+
+
 def validate_semantic_payload(payload: dict) -> list[str]:
+    """Structural errors that invalidate the whole payload.
+
+    Per-finding problems do not fail the review; they are rejected individually
+    and surfaced through `partition_semantic_findings` / merge diagnostics.
+    """
+    if not isinstance(payload, dict):
+        return ["payload must be a JSON object"]
     errors = []
     if not isinstance(payload.get("findings"), list):
-        return ["findings must be a list"]
-    for index, item in enumerate(payload["findings"]):
-        if item.get("severity") not in {"P0", "P1", "P2"}:
-            errors.append(f"findings[{index}].severity is invalid")
-        confidence = item.get("confidence", 0.7)
-        if not isinstance(confidence, (int, float)) or not 0 <= confidence <= 1:
-            errors.append(f"findings[{index}].confidence must be between 0 and 1")
+        errors.append("findings must be a list")
     return errors
 
 

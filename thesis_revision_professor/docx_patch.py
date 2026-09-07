@@ -11,6 +11,7 @@ import zipfile
 from pathlib import Path
 from xml.etree import ElementTree as ET
 
+from .audits import confirmation_marker
 from .document_model import W, W14, fallback_paragraph_id, has_complex_content, iter_paragraph_nodes, paragraph_text, text_hash
 
 
@@ -360,7 +361,7 @@ def patch_docx(
     comments_added = 0
     results = []
     changed_nodes: set[int] = set()
-    marker = " [需作者确认：缺少支撑材料]"
+    marker = confirmation_marker("缺少支撑材料")
     for item in plan.get("items", []):
         patch_mode = item.get("patch_mode", "manual_only")
         should_patch = bool(item.get("confirmed")) or (mark_unconfirmed and patch_mode == "mark_unconfirmed")
