@@ -15,10 +15,12 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
+from thesis_revision_professor.audits import regression_audit, strip_confirmation_markers
 from thesis_revision_professor.document_model import W14_NS, W_NS, load_document
 from thesis_revision_professor.docx_patch import patch_docx
 from thesis_revision_professor.docx_report import write_docx
 from thesis_revision_professor.profiles import load_profile, profile_audit
+from thesis_revision_professor.review_engine import issue_fingerprint, legacy_fingerprint
 from thesis_revision_professor.state_machine import advance_state
 from thesis_revision_professor.workflow import corpus_workflow, defense_workflow, deep_review_workflow, review_workflow, revise_workflow, status_summary
 
@@ -188,6 +190,10 @@ def main() -> None:
         check_locator_stability(temp)
         check_paragraph_id_injection(temp)
         check_namespace_preservation(temp)
+        check_fingerprint_migration()
+        check_regression_invariants(temp)
+        check_marker_decoupling(temp)
+        check_semantic_rejections(temp, source)
 
         subprocess.run([sys.executable, "scripts/release_gate.py"], cwd=ROOT, check=True)
     print("v4 smoke tests passed")
@@ -362,6 +368,210 @@ def check_namespace_preservation(temp: Path) -> None:
     assert "ns0" not in out_xml2
     assert out_xml2.count("xmlns:wp14=") == 1
     assert out_xml2.count("xmlns:wps=") == 1
+
+
+def check_fingerprint_migration() -> None:
+    locator = "word/document.xml#para=ABC12345"
+    # 措辞无关：同一 rule_id+locator 不同 finding 文本指纹相同；legacy 算法可区分
+    assert issue_fingerprint("EVI-X", locator, "甲措辞") == issue_fingerprint("EVI-X", locator, "乙措辞")
+    assert issue_fingerprint("EVI-X", locator) != issue_fingerprint("EVI-X", "word/document.xml#para=OTHER")
+    assert legacy_fingerprint("EVI-X", locator, "  Some  Text ") == legacy_fingerprint("EVI-X", locator, "some text")
+    assert legacy_fingerprint("EVI-X", locator, "甲措辞") != issue_fingerprint("EVI-X", locator)
+
+    def old_issue(rule_id: str, finding: str, status: str) -> dict:
+        return {
+            "id": f"P1-{rule_id}-old",
+            "fingerprint": legacy_fingerprint(rule_id, locator, finding),
+            "rule_id": rule_id,
+            "locator": locator,
+            "finding": finding,
+            "priority": "P1",
+            "status": status,
+        }
+
+    # 模拟旧版本写出的 revision_state.json(措辞相关 fingerprint)
+    prior = {
+        "schema_version": "4.0",
+        "round": 1,
+        "max_rounds": 5,
+        "stable_rounds": 0,
+        "issues": [
+            old_issue("EVI-OLD-RESOLVED", "旧措辞A", "resolved"),
+            old_issue("EVI-OLD-APPLIED", "旧措辞B", "applied"),
+            old_issue("EVI-OLD-GONE", "旧措辞C", "confirmed"),
+        ],
+        "resolved": [],
+        "scores": [],
+        "history": [],
+    }
+
+    def new_finding(rule_id: str) -> dict:
+        return {
+            "id": f"P1-{rule_id}-new",
+            "fingerprint": issue_fingerprint(rule_id, locator),
+            "rule_id": rule_id,
+            "locator": locator,
+            "finding": "语义层完全不同的新措辞",
+            "priority": "P1",
+            "status": "open",
+        }
+
+    migrated = advance_state(
+        prior,
+        {"review": {"issues": [new_finding("EVI-OLD-RESOLVED"), new_finding("EVI-OLD-APPLIED")]}},
+        phase="regression_review",
+    )
+    by_rule = {item["rule_id"]: item for item in migrated["issues"]}
+    # 旧 fingerprint 的 issue 历史不丢：resolved→reopened,applied→regressed
+    assert by_rule["EVI-OLD-RESOLVED"]["status"] == "reopened"
+    assert by_rule["EVI-OLD-APPLIED"]["status"] == "regressed"
+    # 重写后统一为新指纹
+    assert by_rule["EVI-OLD-RESOLVED"]["fingerprint"] == issue_fingerprint("EVI-OLD-RESOLVED", locator)
+    assert by_rule["EVI-OLD-APPLIED"]["fingerprint"] == issue_fingerprint("EVI-OLD-APPLIED", locator)
+    # 消失的 legacy issue 以新指纹记入 resolved
+    resolved_rules = {item["rule_id"] for item in migrated["resolved"]}
+    assert "EVI-OLD-GONE" in resolved_rules
+    gone = next(item for item in migrated["resolved"] if item["rule_id"] == "EVI-OLD-GONE")
+    assert gone["fingerprint"] == issue_fingerprint("EVI-OLD-GONE", locator)
+
+
+def check_regression_invariants(temp: Path) -> None:
+    before = temp / "inv-before.md"
+    before.write_text("样本量 1,247 人，下降 -2.3%，始于 1875 年。\n", encoding="utf-8")
+    after = temp / "inv-after.md"
+    after.write_text("样本量 1,248 人，下降 -2.4%，始于 1876 年，含圆周率 3.14。\n", encoding="utf-8")
+    left = load_document(before)
+    right = load_document(after)
+    # 正例：千分位、负数百分比、小数、非 19/20 开头年份的未授权变化全部被检出
+    audit = regression_audit(left, right)
+    assert audit["regression_result"] == "blocked_and_rolled_back"
+    numbers = audit["changes"]["numbers"]
+    assert "1,247" in numbers["removed"] and "1,248" in numbers["added"]
+    assert "-2.3%" in numbers["removed"] and "-2.4%" in numbers["added"]
+    assert "3.14" in numbers["added"]
+    years = audit["changes"]["years"]
+    assert "1875" in years["removed"] and "1876" in years["added"]
+    # 负例：授权白名单内的同样变化不报
+    allowed = regression_audit(
+        left,
+        right,
+        {"numbers": ["1,247", "1,248", "-2.3%", "-2.4%", "3.14"], "years": ["1875", "1876"], "citations": []},
+    )
+    assert allowed["regression_result"] == "pass"
+    # 负例：完全相同的文本(含版本号样式 1.2.3)不产生任何变化
+    same = temp / "inv-same.md"
+    same.write_text("使用版本 1.2.3 的统计口径与编号 GB/T 7714。\n", encoding="utf-8")
+    unchanged = regression_audit(load_document(same), load_document(same))
+    assert unchanged["regression_result"] == "pass"
+    assert unchanged["changes"]["numbers"]["added"] == []
+    assert unchanged["changes"]["years"]["added"] == []
+
+
+def check_marker_decoupling(temp: Path) -> None:
+    assert strip_confirmation_markers("结果显示提升 42%。 [需作者确认:99 处待补]") == "结果显示提升 42%。"
+    plain = temp / "marker-before.docx"
+    write_docx(plain, "标记解耦", "结果显示提升 42%。")
+    before = load_document(plain)
+    # 正例：未确认项走标记路径，标记文本(即使含数字)不进入数字/年份比对
+    mark_plan = {
+        "items": [
+            {
+                "id": "PLAN-MARK",
+                "patch_mode": "mark_unconfirmed",
+                "confirmed": False,
+                "locator": "",
+                "target_text": "结果显示提升 42%。",
+                "target_hash": "",
+                "problem": "需要作者确认",
+                "requires_author_confirmation": True,
+            }
+        ]
+    }
+    candidate = temp / "marker-candidate.docx"
+    log = patch_docx(plain, candidate, mark_plan)
+    assert log["marked_count"] == 1
+    audit = regression_audit(before, load_document(candidate))
+    assert audit["changes"]["numbers"]["added"] == []
+    assert audit["changes"]["numbers"]["removed"] == []
+    assert audit["changes"]["years"]["added"] == []
+    assert audit["regression_result"] == "pass"
+    # 对照：已确认替换若引入未授权数字变化仍被检出
+    replace_plan = {
+        "items": [
+            {
+                "id": "PLAN-REPLACE",
+                "patch_mode": "replace_text",
+                "confirmed": True,
+                "locator": "",
+                "target_text": "42%",
+                "target_hash": "",
+                "proposed_rewrite": "43%",
+                "problem": "改写",
+                "requires_author_confirmation": False,
+            }
+        ]
+    }
+    candidate2 = temp / "marker-candidate2.docx"
+    patch_docx(plain, candidate2, replace_plan)
+    audit2 = regression_audit(before, load_document(candidate2))
+    assert "43%" in audit2["changes"]["numbers"]["added"]
+    assert "42%" in audit2["changes"]["numbers"]["removed"]
+    assert audit2["regression_result"] == "blocked_and_rolled_back"
+
+
+def check_semantic_rejections(temp: Path, source: Path) -> None:
+    def finding(rule_id: str, **overrides: object) -> dict:
+        base = {
+            "rule_id": rule_id,
+            "reviewer": "chief_argument_reviewer",
+            "locator": "word/document.xml#para=ABC12345",
+            "severity": "P1",
+            "confidence": 0.8,
+            "finding": "语义发现",
+            "rationale": "依据",
+            "recommended_action": "动作",
+            "acceptance_test": "验收",
+        }
+        base.update(overrides)
+        return base
+
+    payload = {
+        "findings": [
+            finding("SEM-VALID"),
+            finding("SEM-BAD-SEVERITY", severity="P3"),
+            finding("SEM-MISSING-FIELDS", rationale="", recommended_action=""),
+            finding("SEM-BAD-LOCATOR", locator="word/document.xml", confidence=1.5),
+            finding("SEM-LEGACY-LOCATOR", locator="word/document.xml#para=00A1;index=48"),
+        ]
+    }
+    payload_path = temp / "semantic-findings.json"
+    payload_path.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
+    out = temp / "semantic-review"
+    # 个别 finding 非法不导致工作流失败
+    review_workflow(source, out, semantic_findings=payload_path)
+    rejections = read(out / "semantic_rejections.json")
+    assert len(rejections) == 3
+    reasons_blob = json.dumps(rejections, ensure_ascii=False)
+    assert "severity" in reasons_blob
+    assert "missing required field" in reasons_blob
+    assert "locator" in reasons_blob
+    assert "confidence" in reasons_blob
+    rejected_ids = {entry["finding"]["rule_id"] for entry in rejections}
+    assert rejected_ids == {"SEM-BAD-SEVERITY", "SEM-MISSING-FIELDS", "SEM-BAD-LOCATOR"}
+    # 合法 finding(含历史 ;index= locator)正常合并
+    panel = read(out / "professor_panel.json")
+    panel_rules = {item["rule_id"] for item in panel["issues"]}
+    assert "SEM-VALID" in panel_rules
+    assert "SEM-LEGACY-LOCATOR" in panel_rules
+    # 结构级错误仍整体拒绝
+    bad_path = temp / "semantic-bad.json"
+    bad_path.write_text(json.dumps({"findings": "not-a-list"}), encoding="utf-8")
+    try:
+        review_workflow(source, temp / "semantic-bad-out", semantic_findings=bad_path)
+    except ValueError:
+        pass
+    else:
+        raise AssertionError("structurally invalid semantic payload must raise ValueError")
 
 
 if __name__ == "__main__":

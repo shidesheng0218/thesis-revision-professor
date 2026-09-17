@@ -151,7 +151,8 @@ def invariant_snapshot(document: ThesisDocument) -> dict:
     # 先剥离作者确认标记：标记文本(及其未来可能出现的数字)不参与数字/年份/citation 比对。
     text = "\n".join(strip_confirmation_markers(paragraph.text) for paragraph in document.paragraphs)
     return {
-        "numbers": Counter(NUMBER_TOKEN_RE.findall(text)),
+        # 四位年份由 years 类别单独登记，不再重复计入 numbers，避免同一变化双报。
+        "numbers": Counter(token for token in NUMBER_TOKEN_RE.findall(text) if not YEAR_TOKEN_RE.fullmatch(token)),
         "years": Counter(YEAR_TOKEN_RE.findall(text)),
         "citations": Counter(citation_markers(text)),
         "media_parts": list(document.media_parts),

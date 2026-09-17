@@ -8,7 +8,7 @@
 
 Alternate states: `waived` (author accepts documented risk), `blocked` (needs material or complex Word edit), `reopened` (a resolved or waived issue reappears in a later round), and `regressed` (an issue whose status was `applied` reappears in a later round's findings with the same fingerprint — the applied change did not take effect or was reverted).
 
-Every issue uses a stable fingerprint generated from `rule_id`, locator, and normalized finding. Do not append duplicate P0/P1/P2 lists each round. The locator is `word/document.xml#para={w14:paraId}` (no enumeration index), so a paragraph's fingerprint stays stable across rounds once its `w14:paraId` exists in the file; documents without paraIds get deterministic ids injected on the first controlled patch.
+Every issue uses a stable fingerprint generated from `rule_id` and locator only — the finding text is display data and never feeds the digest, so reviewer wording changes cannot break a resolved/reopened/regressed chain. Do not append duplicate P0/P1/P2 lists each round. The locator is `word/document.xml#para={w14:paraId}` (no enumeration index), so a paragraph's fingerprint stays stable across rounds once its `w14:paraId` exists in the file; documents without paraIds get deterministic ids injected on the first controlled patch. States written before this decoupling keep wording-dependent fingerprints; on the next `advance_state` they are matched by their stored fingerprint, by the legacy `sha256(rule_id|locator|normalized finding)` value, or by the recomputed current value, and are rewritten onto the current fingerprint.
 
 ## Required state fields
 
