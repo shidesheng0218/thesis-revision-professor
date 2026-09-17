@@ -134,11 +134,11 @@ def build_findings(claim_graph: dict, strategy: dict, citations: dict, structure
                 locator=risk.get("locator", "word/document.xml#references"),
                 finding=risk["message"],
                 severity=risk["priority"],
-                rationale="正文区与参考文献区已分离后执行编号一致性检查。",
+                rationale=risk.get("rationale", "正文区与参考文献区已分离后执行编号一致性检查。"),
                 action="核对原文与参考文献表，不自动生成或猜测文献。",
                 acceptance_test="正文引用与文后条目一一对应，且作者确认文献真实存在。",
-                confidence=0.92,
-                requires_confirmation=risk["priority"] == "P0",
+                confidence=float(risk.get("confidence", 0.92)),
+                requires_confirmation=bool(risk.get("requires_confirmation", risk["priority"] == "P0")),
             )
         )
     for risk in structure.get("risks", []):

@@ -33,3 +33,14 @@ Require explicit confirmation before adding or changing a fact, data point, cita
 Never fabricate data, sources, experiments, interviews, cases, policies, results, or history. Never turn a hypothesis into a finding, copy corpus prose, optimize for plagiarism evasion, or promise academic outcomes.
 
 Use `[需作者确认：缺少支撑该判断的数据/文献/材料]` for unresolved material claims.
+
+## CIT-REF audit boundary
+
+`CIT-REF-*` findings (reference-list structure audit) check only structural
+facts: numbering continuity and duplication, and GB/T 7714 element presence
+(author, title, year, type marker such as `[J]`/`[M]`/`[D]`/`[C]`; full-width
+`【J】` gets a P2 presentation hint). They never assert that a reference
+really exists, that its content supports a claim, or that it was actually
+consulted — that verification belongs to the evidence layer and requires the
+author or a semantic reviewer. When no reference section or no parseable
+entries exist, the audit stays silent rather than guessing.

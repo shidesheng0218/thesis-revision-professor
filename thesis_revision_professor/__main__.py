@@ -9,12 +9,15 @@ from pathlib import Path
 
 from .corpus import rights_template
 from .docx_report import write_docx
+from .llm_review import LlmReviewError, run_llm_review
 from .workflow import (
     consistency_workflow,
     corpus_workflow,
     defense_workflow,
     deep_review_workflow,
+    disclosure_workflow,
     evidence_template_workflow,
+    import_feedback_workflow,
     merge_semantic_workflow,
     review_workflow,
     revise_workflow,
@@ -90,6 +93,21 @@ def cmd_consistency(args: argparse.Namespace) -> None:
 
 def cmd_defense(args: argparse.Namespace) -> None:
     print_result(defense_workflow(args.review, args.outdir))
+
+
+def cmd_disclosure(args: argparse.Namespace) -> None:
+    print_result(disclosure_workflow(args.review, args.outdir))
+
+
+def cmd_import_feedback(args: argparse.Namespace) -> None:
+    print_result(import_feedback_workflow(args.text, args.review, args.outdir))
+
+
+def cmd_llm_review(args: argparse.Namespace) -> None:
+    try:
+        print_result(run_llm_review(args.request, args.out))
+    except LlmReviewError as error:
+        raise SystemExit(f"llm-review 失败:{error}")
 
 
 def cmd_demo(args: argparse.Namespace) -> None:
@@ -206,6 +224,22 @@ def build_parser() -> argparse.ArgumentParser:
     defense.add_argument("--review", required=True)
     defense.add_argument("--outdir", required=True)
     defense.set_defaults(func=cmd_defense)
+
+    disclosure = sub.add_parser("disclosure", help="Export the machine-generated AI-assisted-content disclosure")
+    disclosure.add_argument("--review", required=True, help="Round directory containing revision_state.json / revision_plan.json")
+    disclosure.add_argument("--outdir", required=True)
+    disclosure.set_defaults(func=cmd_disclosure)
+
+    feedback = sub.add_parser("import-feedback", help="Import external blind-review/advisor feedback into a controlled revision round")
+    feedback.add_argument("text", help="Opinion text file (.txt/.md, utf-8)")
+    feedback.add_argument("--review", required=True, help="Round directory containing round_payload.json")
+    feedback.add_argument("--outdir", required=True)
+    feedback.set_defaults(func=cmd_import_feedback)
+
+    llm = sub.add_parser("llm-review", help="Generate semantic_findings.json via an OpenAI-compatible API (optional)")
+    llm.add_argument("--request", required=True, help="semantic_review_request.json from a review round")
+    llm.add_argument("--out", required=True, help="Output semantic_findings.json")
+    llm.set_defaults(func=cmd_llm_review)
 
     demo = sub.add_parser("demo", help="Generate a synthetic, copyright-safe v4 demo")
     demo.add_argument("--outdir")

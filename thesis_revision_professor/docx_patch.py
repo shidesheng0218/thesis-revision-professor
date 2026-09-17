@@ -364,6 +364,11 @@ def patch_docx(
     marker = confirmation_marker("缺少支撑材料")
     for item in plan.get("items", []):
         patch_mode = item.get("patch_mode", "manual_only")
+        # 自动修改仅限 word/document.xml;脚注/页眉页脚等部件一律转人工队列。
+        item_locator = item.get("locator") or ""
+        if item_locator and not item_locator.startswith("word/document.xml#"):
+            results.append({"id": item.get("id"), "status": "blocked", "reason": "unsupported_part_requires_manual_edit"})
+            continue
         should_patch = bool(item.get("confirmed")) or (mark_unconfirmed and patch_mode == "mark_unconfirmed")
         if not should_patch or patch_mode == "manual_only":
             if comments and patch_mode == "manual_only":

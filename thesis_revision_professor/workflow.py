@@ -489,6 +489,13 @@ def revise_workflow(
     )
     analysis.pop("document_object")
     write_json(outdir / "applied_revision_log.json", patch_log)
+    mapping_path = Path(plan_path).parent / "feedback_mapping.json"
+    if mapping_path.exists():
+        # 计划来自外部意见导入时,同步刷新《意见—修改对照表》。
+        from .feedback import build_feedback_report
+
+        mapping_payload = read_json(mapping_path)
+        build_feedback_report(mapping_payload.get("items", []), plan.get("items", []), patch_log=patch_log, out_docx=outdir / "意见—修改对照表.docx")
     write_json(outdir / "diff_audit.json", regression)
     write_json(outdir / "professor_panel.json", analysis["review"])
     write_json(outdir / "claim_evidence_graph.json", analysis["claim_graph"])
@@ -605,6 +612,62 @@ def defense_workflow(review_dir: str | Path, outdir: str | Path) -> dict:
     from .defense import build_defense_package
 
     return build_defense_package(review_dir, outdir)
+
+
+def disclosure_workflow(review_dir: str | Path, outdir: str | Path) -> dict:
+    from .disclosure import build_disclosure_package
+
+    return build_disclosure_package(review_dir, outdir)
+
+
+def import_feedback_workflow(text_path: str | Path, review_dir: str | Path, outdir: str | Path) -> dict:
+    """Import external blind-review/advisor feedback into a new planning round.
+
+    Reads the round's round_payload.json, converts opinion text into
+    same-shape findings, rebuilds the revision plan (feedback items are marked
+    source=external_feedback), and writes feedback_mapping.json plus the
+    《意见—修改对照表》 for the follow-up revise round.
+    """
+    from .feedback import build_feedback_mapping, build_feedback_report, feedback_findings
+
+    review_dir = Path(review_dir)
+    outdir = Path(outdir)
+    outdir.mkdir(parents=True, exist_ok=True)
+    payload = read_json(review_dir / "round_payload.json")
+    text = Path(text_path).read_text(encoding="utf-8", errors="ignore")
+    document = load_document(payload["input"])
+    findings = feedback_findings(text, document)
+    merged_issues = list(payload["review"]["issues"]) + findings
+    plan = _revision_plan(document, payload["claim_graph"], {"issues": merged_issues})
+    prior_plan = payload.get("revision_plan", {})
+    for key in ("level", "discipline", "method", "stage", "profile_path", "evidence_dir", "evidence_manifest_path"):
+        if key in prior_plan:
+            plan[key] = prior_plan[key]
+    feedback_fingerprints = {finding["fingerprint"] for finding in findings}
+    for item in plan["items"]:
+        if item.get("fingerprint") in feedback_fingerprints:
+            item["source"] = "external_feedback"
+            if item.get("locator"):
+                # 可定位的外部意见走标记路径;不可定位的保持 manual_only。
+                item["patch_mode"] = "mark_unconfirmed"
+                item["action"] = "mark_and_request"
+    write_json(outdir / "revision_plan.json", plan)
+    write_json(outdir / "professor_panel.json", {"schema_version": "4.0", "level": plan.get("level"), "issues": merged_issues})
+    mapping = build_feedback_mapping(findings, plan["items"])
+    write_json(
+        outdir / "feedback_mapping.json",
+        {"schema_version": "4.0", "source_review": str(review_dir), "items": mapping},
+    )
+    report_docx = outdir / "意见—修改对照表.docx"
+    build_feedback_report(mapping, plan["items"], out_docx=report_docx)
+    return {
+        "outdir": str(outdir),
+        "revision_plan": str(outdir / "revision_plan.json"),
+        "feedback_mapping": str(outdir / "feedback_mapping.json"),
+        "report": str(report_docx),
+        "feedback_count": len(findings),
+        "unlocated_count": sum(1 for finding in findings if finding["needs_manual_locator"]),
+    }
 
 
 def corpus_workflow(corpus_dir: str | Path, out: str | Path, *, rights_manifest: str | Path | None = None) -> dict:

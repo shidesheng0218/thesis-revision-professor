@@ -3,11 +3,14 @@
 
 from __future__ import annotations
 
+import http.server
 import json
+import os
 import re
 import subprocess
 import sys
 import tempfile
+import threading
 import zipfile
 from pathlib import Path
 
@@ -15,14 +18,15 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from thesis_revision_professor.audits import regression_audit, strip_confirmation_markers
+from thesis_revision_professor.audits import citation_audit, regression_audit, strip_confirmation_markers
 from thesis_revision_professor.document_model import W14_NS, W_NS, load_document
 from thesis_revision_professor.docx_patch import patch_docx
 from thesis_revision_professor.docx_report import write_docx
+from thesis_revision_professor.llm_review import LlmReviewError, run_llm_review
 from thesis_revision_professor.profiles import load_profile, profile_audit
 from thesis_revision_professor.review_engine import issue_fingerprint, legacy_fingerprint
 from thesis_revision_professor.state_machine import advance_state
-from thesis_revision_professor.workflow import corpus_workflow, defense_workflow, deep_review_workflow, review_workflow, revise_workflow, status_summary
+from thesis_revision_professor.workflow import corpus_workflow, defense_workflow, deep_review_workflow, disclosure_workflow, import_feedback_workflow, review_workflow, revise_workflow, status_summary
 
 
 MC_NS = "http://schemas.openxmlformats.org/markup-compatibility/2006"
@@ -194,6 +198,11 @@ def main() -> None:
         check_regression_invariants(temp)
         check_marker_decoupling(temp)
         check_semantic_rejections(temp, source)
+        check_disclosure(temp, source)
+        check_llm_review(temp)
+        check_feedback(temp, source)
+        check_cit_ref_audit(temp)
+        check_footnote_coverage(temp)
 
         subprocess.run([sys.executable, "scripts/release_gate.py"], cwd=ROOT, check=True)
     print("v4 smoke tests passed")
@@ -572,6 +581,264 @@ def check_semantic_rejections(temp: Path, source: Path) -> None:
         pass
     else:
         raise AssertionError("structurally invalid semantic payload must raise ValueError")
+
+
+def check_disclosure(temp: Path, source: Path) -> None:
+    review_dir = temp / "disclosure-review"
+    review_workflow(source, review_dir, level="master", discipline="education", method="qualitative")
+    out = temp / "disclosure-out"
+    result = disclosure_workflow(review_dir, out)
+    md = (out / "AI辅助内容清单.md").read_text(encoding="utf-8")
+    assert "审查过程" in md
+    assert "修改计划项" in md
+    assert "待作者确认项" in md
+    assert "未采纳的语义审查意见" in md
+    assert "产物完整性" in md
+    # 未确认项有体现(plan 中 requires_author_confirmation 且未确认的项)
+    assert "待确认" in md
+    payload = read(out / "AI辅助内容清单.json")
+    assert payload["plan_items"] > 0
+    assert payload["pending_confirmation"] > 0
+    # docx 生成且可重新 load
+    docx_path = Path(result["docx"])
+    assert docx_path.exists()
+    reloaded = load_document(docx_path)
+    assert any("辅助内容清单" in item.text for item in reloaded.paragraphs)
+    # 降级:产物缺失的目录不崩,且如实注明缺失
+    empty = temp / "disclosure-empty"
+    empty.mkdir()
+    disclosure_workflow(empty, temp / "disclosure-degraded")
+    degraded_md = (temp / "disclosure-degraded" / "AI辅助内容清单.md").read_text(encoding="utf-8")
+    assert "缺失" in degraded_md
+    assert "无修改计划产物" in degraded_md
+
+
+def check_llm_review(temp: Path) -> None:
+    valid_finding = {
+        "rule_id": "SEM-LLM-VALID",
+        "reviewer": "chief_argument_reviewer",
+        "locator": "word/document.xml#para=ABC12345",
+        "severity": "P1",
+        "confidence": 0.8,
+        "finding": "模型发现的合法问题",
+        "rationale": "依据",
+        "counterevidence": "反证",
+        "recommended_action": "动作",
+        "acceptance_test": "验收",
+    }
+    bad_finding = {
+        "rule_id": "SEM-LLM-BAD",
+        "reviewer": "method_expert",
+        "locator": "word/document.xml#para=ABC12345",
+        "severity": "P9",
+        "confidence": 0.8,
+        "finding": "非法 severity",
+        "rationale": "依据",
+        "recommended_action": "动作",
+        "acceptance_test": "验收",
+    }
+    captured: dict = {}
+
+    class Handler(http.server.BaseHTTPRequestHandler):
+        def do_POST(self) -> None:
+            length = int(self.headers.get("Content-Length", 0))
+            captured["path"] = self.path
+            captured["body"] = json.loads(self.rfile.read(length))
+            content = json.dumps({"findings": [valid_finding, bad_finding]}, ensure_ascii=False)
+            response = json.dumps({"choices": [{"message": {"role": "assistant", "content": content}}]}).encode("utf-8")
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(response)
+
+        def log_message(self, *_args: object) -> None:
+            return
+
+    server = http.server.HTTPServer(("127.0.0.1", 0), Handler)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    request_path = temp / "llm-request.json"
+    request_path.write_text(
+        json.dumps(
+            {
+                "task": "independent_semantic_professor_review",
+                "reviewer_roles": ["chief_argument_reviewer"],
+                "output_schema": {"findings": []},
+            },
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+    out_path = temp / "llm-out" / "semantic_findings.json"
+    try:
+        os.environ["THESIS_REVIEW_API_BASE"] = f"http://127.0.0.1:{server.server_port}/v1"
+        os.environ["THESIS_REVIEW_API_KEY"] = "test-key"
+        os.environ["THESIS_REVIEW_MODEL"] = "fake-model"
+        result = run_llm_review(request_path, out_path)
+        # 请求拼装正确:OpenAI 兼容路径、模型、system+user 消息、Bearer 头
+        assert captured["path"].endswith("/chat/completions")
+        assert captured["body"]["model"] == "fake-model"
+        assert [message["role"] for message in captured["body"]["messages"]] == ["system", "user"]
+        # 响应解析 + 字段校验接入:合法 finding 保留,非法 severity 被拒
+        payload = read(out_path)
+        assert [item["rule_id"] for item in payload["findings"]] == ["SEM-LLM-VALID"]
+        assert len(payload["rejected_findings"]) == 1
+        assert payload["rejected_findings"][0]["finding"]["rule_id"] == "SEM-LLM-BAD"
+        assert result["roles_ok"] == 1 and result["partial"] is False
+    finally:
+        server.shutdown()
+        server.server_close()
+        for variable in ("THESIS_REVIEW_API_BASE", "THESIS_REVIEW_API_KEY", "THESIS_REVIEW_MODEL"):
+            os.environ.pop(variable, None)
+    # 无 key 时清晰报错(非零退出路径由 CLI SystemExit 承担)
+    try:
+        run_llm_review(request_path, temp / "llm-out2" / "semantic_findings.json")
+    except LlmReviewError:
+        pass
+    else:
+        raise AssertionError("缺少 THESIS_REVIEW_API_KEY 时 llm-review 必须报错")
+
+
+def check_feedback(temp: Path, source: Path) -> None:
+    review_dir = temp / "feedback-review"
+    review_workflow(source, review_dir, level="master", discipline="education", method="qualitative")
+    opinion = temp / "盲审意见.txt"
+    opinion.write_text(
+        "盲审专家意见\n"
+        "1. 第三章研究方法的样本量描述不足，建议补充说明。\n"
+        "2. 第四章结果存在严重错误，必须修改统计口径。\n"
+        "3. 第二章文献综述建议补充近两年文献。\n"
+        "4. 语言表达需要润色，个别段落不通顺。\n",
+        encoding="utf-8",
+    )
+    out = temp / "feedback-round"
+    result = import_feedback_workflow(opinion, review_dir, out)
+    assert result["feedback_count"] == 4
+    assert result["unlocated_count"] == 1
+    plan = read(out / "revision_plan.json")
+    feedback_items = [item for item in plan["items"] if item.get("source") == "external_feedback"]
+    assert len(feedback_items) == 4
+    located = [item for item in feedback_items if item.get("locator")]
+    unlocated = [item for item in feedback_items if not item.get("locator")]
+    assert len(located) == 3 and len(unlocated) == 1
+    # 可定位项走标记路径;不可定位项保持 manual_only,绝不进自动 patch
+    assert all(item["patch_mode"] == "mark_unconfirmed" for item in located)
+    assert unlocated[0]["patch_mode"] == "manual_only"
+    assert any(item["locator"].startswith("word/document.xml#para=") for item in located)
+    # severity 启发式:严重/必须 → P0;建议/不足 → P1
+    panel = read(out / "professor_panel.json")
+    by_rule = {item["rule_id"]: item for item in panel["issues"] if item.get("rule_id", "").startswith("FB-")}
+    assert by_rule["FB-001"]["priority"] == "P1"
+    assert by_rule["FB-002"]["priority"] == "P0"
+    assert by_rule["FB-004"]["needs_manual_locator"] is True
+    mapping = read(out / "feedback_mapping.json")
+    assert len(mapping["items"]) == 4
+    statuses = {item["feedback_id"]: item["status"] for item in mapping["items"]}
+    assert statuses["FB-004"] == "待定位"
+    # 对照表 docx 生成且可打开
+    report = load_document(Path(result["report"]))
+    assert any("意见—修改对照表" in item.text for item in report.paragraphs)
+    # revise 检测到 feedback_mapping.json 时自动刷新对照表
+    revise_dir = temp / "feedback-revise"
+    revise_workflow(source, out / "revision_plan.json", revise_dir)
+    revise_report = revise_dir / "意见—修改对照表.docx"
+    assert revise_report.exists()
+    revised_mapping_doc = load_document(revise_report)
+    assert any("已修改" in item.text or "需作者确认" in item.text for item in revised_mapping_doc.paragraphs)
+
+
+def check_cit_ref_audit(temp: Path) -> None:
+    flawed = temp / "cit-ref-flawed.docx"
+    write_docx(
+        flawed,
+        "文献审计",
+        "正文引用[1]。\n\n# 参考文献\n\n"
+        "[1] 张三. 教学设计研究[J]. 教育研究, 2024(1): 1-10.\n"
+        "[2] 李四. 学习体验调查\n"
+        "[2] 王五. 重复编号研究[J]. 教育研究, 2023(2): 5-6.\n"
+        "[4] 赵六【M】. 某专著. 2020.",
+    )
+    audit = citation_audit(load_document(flawed))
+    rules = {risk["rule_id"] for risk in audit["risks"]}
+    assert "CIT-REF-NUMBERING" in rules
+    assert "CIT-REF-FIELDS" in rules
+    assert "CIT-REF-FULLWIDTH-MARKER" in rules
+    numbering = next(risk for risk in audit["risks"] if risk["rule_id"] == "CIT-REF-NUMBERING")
+    assert "重复编号 2" in numbering["message"] and "缺号 3" in numbering["message"]
+    assert numbering["priority"] == "P1"
+    fullwidth = next(risk for risk in audit["risks"] if risk["rule_id"] == "CIT-REF-FULLWIDTH-MARKER")
+    assert fullwidth["priority"] == "P2"
+    fields = [risk for risk in audit["risks"] if risk["rule_id"] == "CIT-REF-FIELDS"]
+    assert any("[2]" in risk["message"] for risk in fields)
+    assert any("[4]" in risk["message"] and "缺类型标识" in risk["message"] for risk in fields)
+    # 负例:合规文献表不产生 CIT-REF-* finding
+    clean = temp / "cit-ref-clean.docx"
+    write_docx(clean, "文献审计", "正文引用[1]。\n\n# 参考文献\n\n[1] 张三. 教学设计研究[J]. 教育研究, 2024(1): 1-10.")
+    clean_audit = citation_audit(load_document(clean))
+    assert not [risk for risk in clean_audit["risks"] if risk["rule_id"].startswith("CIT-REF-")]
+    # 负例:无参考文献章节且无引用时静默跳过
+    no_refs = temp / "cit-ref-none.docx"
+    write_docx(no_refs, "文献审计", "没有任何引用的正文。")
+    none_audit = citation_audit(load_document(no_refs))
+    assert not [risk for risk in none_audit["risks"] if risk["rule_id"].startswith("CIT-REF-")]
+
+
+def check_footnote_coverage(temp: Path) -> None:
+    base = temp / "footnote-base.docx"
+    write_docx(base, "脚注覆盖", "正文没有引用，详见脚注。\n\n# 参考文献\n\n[1] 张三. 教学设计研究[J]. 教育研究, 2024(1): 1-10.")
+    with zipfile.ZipFile(base) as archive:
+        parts = {name: archive.read(name) for name in archive.namelist()}
+    footnotes = (
+        f'<w:footnotes xmlns:w="{W_NS}"><w:footnote w:id="2"><w:p><w:r>'
+        "<w:t>该结论参见文献[1]的复现研究。</w:t></w:r></w:p></w:footnote></w:footnotes>"
+    )
+    header = (
+        f'<w:hdr xmlns:w="{W_NS}"><w:p><w:r><w:t>第</w:t></w:r>'
+        '<w:r><w:fldChar w:fldCharType="begin"/></w:r>'
+        '<w:r><w:instrText xml:space="preserve"> PAGE </w:instrText></w:r>'
+        '<w:r><w:fldChar w:fldCharType="end"/></w:r></w:p></w:hdr>'
+    )
+    covered = temp / "footnote-covered.docx"
+    with zipfile.ZipFile(covered, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+        for name, data in parts.items():
+            archive.writestr(name, data)
+        archive.writestr("word/footnotes.xml", footnotes)
+        archive.writestr("word/header1.xml", header)
+    document = load_document(covered)
+    note_paragraphs = [item for item in document.paragraphs if item.locator.startswith("word/footnotes.xml#")]
+    header_paragraphs = [item for item in document.paragraphs if item.locator.startswith("word/header1.xml#")]
+    assert len(note_paragraphs) == 1 and "[1]" in note_paragraphs[0].text
+    assert len(header_paragraphs) == 1
+    # 页码域沿用复杂内容标记,避免误改
+    assert header_paragraphs[0].has_complex_content is True
+    # 脚注引用计入正文引用网络
+    audit = citation_audit(document)
+    assert audit["citation_count"] == 1
+    assert audit["missing_reference_entries"] == []
+    # 对脚注部件段落的 patch 请求被 blocked
+    blocked_plan = {
+        "items": [
+            {
+                "id": "PLAN-NOTE",
+                "patch_mode": "replace_text",
+                "confirmed": True,
+                "locator": note_paragraphs[0].locator,
+                "target_text": "该结论参见文献[1]的复现研究。",
+                "target_hash": "",
+                "proposed_rewrite": "改写脚注。",
+            }
+        ]
+    }
+    candidate = temp / "footnote-candidate.docx"
+    log = patch_docx(covered, candidate, blocked_plan)
+    assert log["items"][0]["status"] == "blocked"
+    assert log["items"][0]["reason"] == "unsupported_part_requires_manual_edit"
+    # 空计划 patch 后包部件回归仍 pass
+    clean_candidate = temp / "footnote-clean-candidate.docx"
+    patch_docx(covered, clean_candidate, {"items": []})
+    regression = regression_audit(load_document(covered), load_document(clean_candidate))
+    assert regression["regression_result"] == "pass"
+    assert not regression["package_parts_removed"]
 
 
 if __name__ == "__main__":

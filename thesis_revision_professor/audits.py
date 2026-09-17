@@ -36,24 +36,31 @@ YEAR_TOKEN_RE = re.compile(r"(?<!\d)(?:1[6-9]\d{2}|20\d{2})(?!\d)")
 
 
 def citation_audit(document: ThesisDocument) -> dict:
-    paragraphs = list(document.paragraphs)
+    # 章节结构只认主文档；脚注/尾注计入正文引用网络；页眉页脚不参与引用审计。
+    main_paragraphs = [p for p in document.paragraphs if p.locator.startswith("word/document.xml#")]
+    note_paragraphs = [p for p in document.paragraphs if p.locator.startswith(("word/footnotes.xml#", "word/endnotes.xml#"))]
+    paragraphs = main_paragraphs
     reference_index: int | None = None
     for index, paragraph in enumerate(paragraphs):
         normalized = re.sub(r"\s+", "", paragraph.text).lower().rstrip("：:")
         if normalized in REFERENCE_TITLES and paragraph.heading_level is not None:
             reference_index = index
             break
-    body = paragraphs if reference_index is None else paragraphs[:reference_index]
+    body = (paragraphs if reference_index is None else paragraphs[:reference_index]) + note_paragraphs
     references = [] if reference_index is None else paragraphs[reference_index + 1 :]
     body_markers = [marker for paragraph in body for marker in citation_markers(paragraph.text)]
     cited_numbers: set[str] = set()
     for marker in body_markers:
         cited_numbers.update(re.findall(r"\d+", marker))
     numbered_references: dict[str, str] = {}
+    entries: list[dict] = []
     for paragraph in references:
         match = re.match(r"^\s*\[?(\d+)\]?[.、\s]", paragraph.text)
-        if match:
-            numbered_references[match.group(1)] = paragraph.locator
+        if not match:
+            continue
+        entry = _parse_reference_entry(match.group(1), paragraph.text, paragraph.locator)
+        entries.append(entry)
+        numbered_references[match.group(1)] = paragraph.locator
     reference_numbers = set(numbered_references)
     missing = sorted(cited_numbers - reference_numbers, key=int)
     uncited = sorted(reference_numbers - cited_numbers, key=int)
@@ -85,6 +92,7 @@ def citation_audit(document: ThesisDocument) -> dict:
                 "locator": "word/document.xml#references",
             }
         )
+    risks.extend(_reference_structure_risks(entries, numbered_references))
     return {
         "schema_version": "4.0",
         "reference_heading_locator": paragraphs[reference_index].locator if reference_index is not None else None,
@@ -93,13 +101,102 @@ def citation_audit(document: ThesisDocument) -> dict:
         "numbered_reference_count": len(numbered_references),
         "missing_reference_entries": missing,
         "uncited_reference_entries": uncited,
+        "reference_entries": entries,
         "risks": risks,
         "note": "引用标记一致性检查不等于引用真实性或语义支持验证。",
     }
 
 
+# GB/T 7714 类型标识(半角),全角括号单独提示。
+_TYPE_MARKER_RE = re.compile(r"\[([A-Za-z]{1,3})\]")
+_FULLWIDTH_MARKER_RE = re.compile(r"【([A-Za-z]{1,3})】")
+
+
+def _parse_reference_entry(number: str, text: str, locator: str) -> dict:
+    """粗解析文献表条目要素；只做结构抽取，不判断文献真实性。"""
+    marker = _TYPE_MARKER_RE.search(text)
+    fullwidth = _FULLWIDTH_MARKER_RE.search(text)
+    year = re.search(r"(?<!\d)(?:1[6-9]\d{2}|20\d{2})(?!\d)", text)
+    segments = [segment.strip() for segment in re.split(r"[.．]", text)]
+    segments = [segment for segment in segments if segment]
+    author = segments[0] if len(segments) >= 2 else ""
+    title = segments[1] if len(segments) >= 3 else ""
+    return {
+        "number": number,
+        "locator": locator,
+        "text": text,
+        "has_author": bool(author),
+        "has_title": bool(title),
+        "has_year": year is not None,
+        "type_marker": marker.group(1) if marker else None,
+        "fullwidth_marker": fullwidth.group(1) if fullwidth else None,
+    }
+
+
+def _reference_structure_risks(entries: list[dict], numbered_references: dict[str, str]) -> list[dict]:
+    """CIT-REF-* 结构审计:编号连续性/重复与 GB/T 7714 要素完整性。
+
+    只做结构匹配；文献是否真实存在、内容是否语义支持主张,属于证据层。
+    """
+    if not entries:
+        return []
+    risks = []
+    numbers = [int(entry["number"]) for entry in entries]
+    duplicates = sorted({number for number in numbers if numbers.count(number) > 1})
+    gaps = sorted(set(range(1, max(numbers) + 1)) - set(numbers)) if numbers else []
+    if duplicates or gaps:
+        parts = []
+        if duplicates:
+            parts.append(f"重复编号 {', '.join(map(str, duplicates))}")
+        if gaps:
+            parts.append(f"缺号 {', '.join(map(str, gaps))}")
+        risks.append(
+            {
+                "rule_id": "CIT-REF-NUMBERING",
+                "priority": "P1",
+                "message": f"参考文献编号不连续或重复：{'；'.join(parts)}。",
+                "locator": "word/document.xml#references",
+                "confidence": 0.9,
+                "requires_confirmation": True,
+                "rationale": "仅核对编号结构,不判断条目内容真实性。",
+            }
+        )
+    for entry in entries:
+        missing_fields = [label for key, label in (("has_author", "作者"), ("has_title", "题名"), ("has_year", "年份")) if not entry[key]]
+        if missing_fields or not entry["type_marker"]:
+            problems = []
+            if missing_fields:
+                problems.append(f"缺 {'/'.join(missing_fields)}")
+            if not entry["type_marker"]:
+                problems.append("缺类型标识(如 [J]/[M]/[D]/[C])")
+            risks.append(
+                {
+                    "rule_id": "CIT-REF-FIELDS",
+                    "priority": "P1",
+                    "message": f"参考文献 [{entry['number']}] {'；'.join(problems)}。",
+                    "locator": entry["locator"],
+                    "confidence": 0.9,
+                    "requires_confirmation": True,
+                    "rationale": "仅按 GB/T 7714 要素完整性做结构检查,不判断文献真实存在或语义支持。",
+                }
+            )
+        if entry["fullwidth_marker"]:
+            risks.append(
+                {
+                    "rule_id": "CIT-REF-FULLWIDTH-MARKER",
+                    "priority": "P2",
+                    "message": f"参考文献 [{entry['number']}] 使用全角类型标识【{entry['fullwidth_marker']}】,建议改为半角 [{entry['fullwidth_marker']}]。",
+                    "locator": entry["locator"],
+                    "confidence": 0.9,
+                    "requires_confirmation": True,
+                    "rationale": "版式规范提示,不影响文献内容判定。",
+                }
+            )
+    return risks
+
+
 def structure_audit(document: ThesisDocument) -> dict:
-    headings = [paragraph for paragraph in document.paragraphs if paragraph.heading_level is not None]
+    headings = [paragraph for paragraph in document.paragraphs if paragraph.heading_level is not None and paragraph.locator.startswith("word/document.xml#")]
     risks: list[dict] = []
     previous_level = 0
     for heading in headings:

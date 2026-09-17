@@ -23,16 +23,16 @@ def text_hash(text: str) -> str:
     return hashlib.sha256(normalized.encode("utf-8")).hexdigest()
 
 
-def fallback_paragraph_id(index: int) -> str:
+def fallback_paragraph_id(index: int, scope: str = "") -> str:
     """Deterministic paraId for paragraphs lacking w14:paraId.
 
     Derived from the enumeration index only (never from text, which patches
-    modify), and matches the value docx_patch injects on write-back, so a
-    paragraph keeps the same locator identity across the review → revise round.
-    Drift from manual paragraph insertion persists only until the first patch
-    writes real w14:paraId attributes into the file.
+    modify), and matches the value docx_patch injects on write-back for the
+    main document part, so a paragraph keeps the same locator identity across
+    the review → revise round. Non-main parts pass a scope prefix so their
+    fallback ids never collide with document.xml ids.
     """
-    return hashlib.sha256(f"p{index}|0|".encode("utf-8")).hexdigest()[:8].upper()
+    return hashlib.sha256(f"{scope}p{index}|0|".encode("utf-8")).hexdigest()[:8].upper()
 
 
 def heading_level(text: str, style: str = "") -> int | None:
@@ -147,43 +147,50 @@ def _source_hash(path: Path) -> str:
 
 def load_docx(path: str | Path) -> ThesisDocument:
     source = Path(path)
+    aux_part_re = re.compile(r"^word/(footnotes|endnotes)\.xml$|^word/(header|footer)\d*\.xml$")
     with zipfile.ZipFile(source) as archive:
-        document_xml = archive.read("word/document.xml")
-        parts = tuple(sorted(archive.namelist()))
-        styles_xml = archive.read("word/styles.xml") if "word/styles.xml" in archive.namelist() else None
-    root = ET.fromstring(document_xml)
-    layout = _extract_layout(root, styles_xml)
+        names = archive.namelist()
+        xml_parts = {"word/document.xml": archive.read("word/document.xml")}
+        for name in sorted(names):
+            if name != "word/document.xml" and aux_part_re.match(name):
+                xml_parts[name] = archive.read(name)
+        parts = tuple(sorted(names))
+        styles_xml = archive.read("word/styles.xml") if "word/styles.xml" in names else None
+    layout = _extract_layout(ET.fromstring(xml_parts["word/document.xml"]), styles_xml)
     paragraphs: list[DocumentParagraph] = []
-    active_section = ""
-    for index, (node, ooxml_path, in_table) in enumerate(iter_paragraph_nodes(root)):
-        text = paragraph_text(node)
-        if not text:
-            continue
-        style = paragraph_style(node)
-        level = heading_level(text, style)
-        if level is not None:
-            active_section = text
-        para_id = node.attrib.get(f"{W14}paraId")
-        has_stable_locator = para_id is not None
-        if not para_id:
-            para_id = fallback_paragraph_id(index)
-        locator = f"word/document.xml#para={para_id}"
-        paragraphs.append(
-            DocumentParagraph(
-                index=index,
-                locator=locator,
-                paragraph_id=para_id,
-                ooxml_path=ooxml_path,
-                text=text,
-                text_hash=text_hash(text),
-                style=style,
-                heading_level=level,
-                section_title=active_section,
-                in_table=in_table,
-                has_complex_content=has_complex_content(node),
-                has_stable_locator=has_stable_locator,
+    for part_name in sorted(xml_parts, key=lambda item: (item != "word/document.xml", item)):
+        root = ET.fromstring(xml_parts[part_name])
+        is_main = part_name == "word/document.xml"
+        scope = "" if is_main else part_name
+        active_section = ""
+        for index, (node, ooxml_path, in_table) in enumerate(iter_paragraph_nodes(root)):
+            text = paragraph_text(node)
+            if not text:
+                continue
+            style = paragraph_style(node)
+            level = heading_level(text, style) if is_main else None
+            if is_main and level is not None:
+                active_section = text
+            para_id = node.attrib.get(f"{W14}paraId")
+            has_stable_locator = para_id is not None
+            if not para_id:
+                para_id = fallback_paragraph_id(index, scope)
+            paragraphs.append(
+                DocumentParagraph(
+                    index=index,
+                    locator=f"{part_name}#para={para_id}",
+                    paragraph_id=para_id,
+                    ooxml_path=ooxml_path,
+                    text=text,
+                    text_hash=text_hash(text),
+                    style=style,
+                    heading_level=level,
+                    section_title=active_section,
+                    in_table=in_table,
+                    has_complex_content=has_complex_content(node),
+                    has_stable_locator=has_stable_locator,
+                )
             )
-        )
     return ThesisDocument(
         source=str(source),
         source_hash=_source_hash(source),

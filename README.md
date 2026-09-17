@@ -171,6 +171,44 @@ python3 -m thesis_revision_professor corpus ./legal-corpus \
 - `--comments` 为人工判断项写入 Word 批注；批注失败时保留外部清单，不静默丢失。
 - `profiles/` 只提供通用安全 profile；学校规范应由用户提供并核对版本。
 
+## 合规披露(AI 辅助内容清单)
+
+国内部分高校已要求学位论文附《AI 辅助内容清单》。本工具可从任意轮目录的机器产物直接生成：
+
+```bash
+python3 -m thesis_revision_professor disclosure --review outputs/round-001 --outdir outputs/disclosure
+```
+
+输出 `AI辅助内容清单.md` / `.docx` / `.json`，汇总每轮审查阶段、参与角色、每条修改计划的执行方式与证据来源、作者确认状态、被拒收的语义 finding 与产物完整性；缺失的产物如实注明"缺失"，不补造内容。
+
+## 外部意见导入闭环(可选)
+
+盲审或导师意见可导入受控修改流程,形成"评审意见→受控修改→对照表"闭环:
+
+```bash
+python3 -m thesis_revision_professor import-feedback 盲审意见.txt --review outputs/round-001 --outdir outputs/round-002
+python3 -m thesis_revision_professor revise thesis.docx --plan outputs/round-002/revision_plan.json --outdir outputs/round-002-applied
+```
+
+意见按启发式规则切分(编号/"第X条"优先,切不开整段一条),可定位项进入标记路径,无法定位的项只进人工队列;`revise` 检测到 `feedback_mapping.json` 时自动生成《意见—修改对照表.docx》(状态随 patch 结果更新,不采纳理由由作者填写)。规则见 `references/feedback-protocol.md`。
+
+## 自动化语义审查(可选)
+
+`semantic_findings.json` 除手工编写外，也可通过 OpenAI 兼容 API 自动生成：
+
+```bash
+export THESIS_REVIEW_API_KEY=...
+export THESIS_REVIEW_MODEL=gpt-4o-mini   # 可选
+export THESIS_REVIEW_API_BASE=https://api.openai.com/v1  # 可选
+python3 -m thesis_revision_professor llm-review --request outputs/round-001/semantic_review_request.json --out semantic_findings.json
+```
+
+只使用标准库 `urllib`，不引入任何第三方依赖；未设置 `THESIS_REVIEW_API_KEY` 时清晰报错退出。输出经过与手工载荷相同的字段校验，被拒 finding 连同原因写入 `rejected_findings`。三点边界：
+
+- 不替代人工判断：产出仍需按 `references/semantic-review-protocol.md` 复核后 merged；
+- 不绕过任何门禁：llm-review 只是 `semantic_findings.json` 的另一种生产方式，merge 与后续 converge 门禁完全一致；
+- 不联网时整条链路仍可手动跑：手工产出 `semantic_findings.json` 后 `merge-semantic` 行为不变。
+
 ## 验证
 
 ```bash

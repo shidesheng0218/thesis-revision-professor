@@ -43,3 +43,11 @@ candidate, so locators become file-stable from the first controlled patch.
 Serialized `word/document.xml` keeps the original namespace prefixes, and every
 prefix listed in `mc:Ignorable` must keep its `xmlns` declaration so Word does
 not prompt to repair the file.
+
+Paragraphs in other package parts (`word/footnotes.xml`, `word/endnotes.xml`,
+`word/header*.xml`, `word/footer*.xml`) are parsed with the same rules and
+carry their part name in the locator, e.g. `word/footnotes.xml#para=...`.
+Automatic patching is limited to `word/document.xml`: patch requests targeting
+any other part are blocked with `unsupported_part_requires_manual_edit` and
+stay in the manual queue. Header/footer paragraphs containing field codes
+(page numbers) are marked as complex content and are never auto-edited.
